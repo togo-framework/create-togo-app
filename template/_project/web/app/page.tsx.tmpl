@@ -1,8 +1,110 @@
-export default function Home() {
+import { ApiStatus } from "@/components/ApiStatus";
+
+const VERSION = "0.1.0";
+
+export default function Welcome() {
   return (
-    <main className="p-8">
-      <h1 className="text-3xl font-bold">{{.AppPascal}}</h1>
-      <p>Powered by togo. Generate a resource: <code>togo make:resource Post title:string</code></p>
-    </main>
+    <div className="relative mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-8">
+      {/* top bar */}
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-2 font-semibold">
+          <Logo />
+          <span>{{.AppPascal}}</span>
+        </div>
+        <nav className="flex items-center gap-5 text-sm text-white/70">
+          <a className="hover:text-white" href="/docs">REST Docs</a>
+          <a className="hover:text-white" href="/graphql">GraphQL</a>
+          <a className="hover:text-white" href="https://github.com/togo-framework" target="_blank" rel="noreferrer">GitHub ↗</a>
+          <a className="rounded-lg bg-white/10 px-3 py-1.5 hover:bg-white/20" href="https://github.com/sponsors/fadymondy" target="_blank" rel="noreferrer">♥ Sponsor</a>
+        </nav>
+      </header>
+
+      {/* hero */}
+      <section className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="mb-6"><Logo big /></div>
+        <h1 className="bg-gradient-to-r from-[var(--brand)] to-[var(--brand-2)] bg-clip-text text-6xl font-black tracking-tight text-transparent">
+          {{.AppPascal}}
+        </h1>
+        <p className="mt-4 max-w-xl text-lg text-white/70">
+          Your API-first app, built with <span className="font-semibold text-white">togo</span> —
+          Go + sqlc + Atlas + GraphQL/OpenAPI + Next.js. Everything you need to ship in seconds.
+        </p>
+        <div className="mt-6"><ApiStatus /></div>
+
+        {/* cards — Laravel-welcome style */}
+        <div className="mt-12 grid w-full gap-4 text-left sm:grid-cols-2">
+          <Card
+            href="/docs"
+            title="REST + OpenAPI"
+            body="Interactive API docs. Every resource ships full CRUD with an auto-generated OpenAPI 3.1 spec."
+          />
+          <Card
+            href="/graphql"
+            title="GraphQL"
+            body="A typed schema served at /graphql, extended automatically as you add resources."
+          />
+          <Card
+            href="https://github.com/togo-framework/cli"
+            title="Generate a resource"
+            body="togo make:resource Post title:string body:text:nullable — model, queries, schema, API, and a page."
+            mono
+          />
+          <Card
+            href="https://github.com/togo-framework/plugin-template"
+            title="Plugins"
+            body="Install backend + frontend plugins: togo install owner/repo. Everything is a plugin."
+          />
+        </div>
+      </section>
+
+      {/* footer */}
+      <footer className="flex items-center justify-between border-t border-white/10 pt-6 text-sm text-white/50">
+        <span>togo v{VERSION} · API-first · powered by Go</span>
+        <span>
+          Edit <code className="rounded bg-white/10 px-1.5 py-0.5">web/app/page.tsx</code>
+        </span>
+      </footer>
+    </div>
+  );
+}
+
+function Card({
+  href,
+  title,
+  body,
+  mono,
+}: {
+  href: string;
+  title: string;
+  body: string;
+  mono?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.06]"
+    >
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-semibold">{title}</h3>
+        <span className="text-white/30 transition-transform group-hover:translate-x-0.5">→</span>
+      </div>
+      <p className={mono ? "font-mono text-xs leading-relaxed text-white/60" : "text-sm leading-relaxed text-white/60"}>
+        {body}
+      </p>
+    </a>
+  );
+}
+
+function Logo({ big }: { big?: boolean }) {
+  const size = big ? "h-16 w-16 text-3xl" : "h-7 w-7 text-sm";
+  return (
+    <span
+      className={
+        size +
+        " inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-2)] font-black text-white"
+      }
+    >
+      t
+    </span>
   );
 }
