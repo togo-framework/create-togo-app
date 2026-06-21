@@ -1,0 +1,17 @@
+import "./globals.css";
+import { Providers } from "@/components/providers";
+
+export const metadata = {
+  title: "{{.AppPascal}} — built with togo",
+  description: "API-first app on the Go + sqlc + Atlas + GraphQL/OpenAPI + Next.js stack.",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased">
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
