@@ -1,0 +1,19 @@
+name: {{.App}}
+module: {{.Module}}
+
+database:
+  driver: postgres
+  url: ${DATABASE_URL}
+
+api:
+  graphql: /graphql
+  rest: /api
+  docs: /docs
+
+auth:
+  provider: supabase
+
+frontend:
+  dir: web
+
+plugins: []
