@@ -1,0 +1,56 @@
+// Package server wires the togo kernel with both interfaces (Huma REST/OpenAPI
+// and gqlgen GraphQL) and returns a ready App. It lives in its own package so
+// both cmd/api (serve) and feature tests can boot the exact same stack.
+package server
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
+	"github.com/go-chi/chi/v5"
+	"github.com/togo-framework/togo"
+
+	"{{.Module}}/internal/app"
+	graphgen "{{.Module}}/internal/graph/gen"
+	"{{.Module}}/internal/graph/resolvers"
+	_ "{{.Module}}/internal/plugins" // blank-imports installed plugins (togo install)
+	"{{.Module}}/internal/rest"
+)
+
+// Boot builds the kernel + app and mounts REST, GraphQL, health, and SSE on the
+// kernel router. It does not start listening — the caller calls Kernel.Serve.
+func Boot() *app.App {
+	k := togo.New()
+	a := app.New(context.Background(), k)
+
+	api := humachi.New(k.Router, huma.DefaultConfig("{{.AppPascal}} API", "0.1.0"))
+	rest.RegisterRoutes(api, a)
+
+	gql := handler.NewDefaultServer(graphgen.NewExecutableSchema(graphgen.Config{
+		Resolvers: &resolvers.Resolver{App: a},
+	}))
+	k.Router.Handle(k.Config.GraphQLPath, gql)
+	k.Router.Handle("/graphql/play", playground.Handler("{{.AppPascal}} GraphQL", k.Config.GraphQLPath))
+
+	k.Router.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok","service":"{{.App}}"}`))
+	})
+
+	if k.Realtime != nil { // realtime feature enabled
+		k.Router.Get("/events", k.Realtime.Handler())
+	}
+	return a
+}
+
+// OpenAPI returns the generated OpenAPI 3.1 document (used by `togo generate`).
+func OpenAPI() ([]byte, error) {
+	router := chi.NewMux()
+	api := humachi.New(router, huma.DefaultConfig("{{.AppPascal}} API", "0.1.0"))
+	rest.RegisterRoutes(api, nil)
+	return api.OpenAPI().YAML()
+}
