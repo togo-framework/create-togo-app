@@ -9,10 +9,12 @@ model:
   filename: internal/graph/gen/models_gen.go
   package: gen
 
-resolver:
-  layout: follow-schema
-  dir: internal/graph/resolvers
-  package: resolvers
-
+# togo owns the resolvers (generated per-resource, sqlc-backed) — gqlgen only
+# generates the executable schema + input models. GraphQL types autobind to the
+# sqlc models in internal/db/gen.
 autobind:
-  - "{{.Module}}/internal/models"
+  - "{{.Module}}/internal/db/gen"
+
+models:
+  Time:
+    model: github.com/99designs/gqlgen/graphql.Time

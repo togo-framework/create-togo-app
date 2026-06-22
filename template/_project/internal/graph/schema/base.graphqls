@@ -1,9 +1,4 @@
-# Root schema. Resource fragments (one per resource) `extend` these types.
-# gqlgen merges every *.graphqls file in this directory.
-type Query {
-  _health: String!
-}
+scalar Time
 
-type Mutation {
-  _noop: Boolean!
-}
+type Query { _health: String! }
+type Mutation { _noop: Boolean! }
