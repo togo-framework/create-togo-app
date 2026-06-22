@@ -9,28 +9,25 @@ import (
 	"log/slog"
 
 	"github.com/togo-framework/togo"
-	"github.com/togo-framework/togo/cache"
 	"github.com/togo-framework/togo/orm"
-	"github.com/togo-framework/togo/queue"
-	"github.com/togo-framework/togo/realtime"
-	"github.com/togo-framework/togo/storage"
 	_ "modernc.org/sqlite" // default DB driver (SQLite). DB provider plugins register others.
 
 	db "{{.Module}}/internal/db/gen"
 )
 
 // App holds the shared services handed to controllers, resolvers, actions, seeders.
+// Service fields are nil unless the matching feature/provider plugin is installed.
 type App struct {
-	Kernel  *togo.Kernel
-	DB      *db.Queries // sqlc typed queries (for complex/typed SQL)
-	SQLDB   *sql.DB     // raw handle used by the ORM
-	Dialect orm.Dialect // driver-specific SQL dialect (from DB_DRIVER)
-	Hooks   *togo.Hooks
-	Log     *slog.Logger
-	Cache    cache.Cache
-	Queue    queue.Queue
-	Storage  storage.Storage
-	Realtime realtime.Broker
+	Kernel   *togo.Kernel
+	DB       *db.Queries // sqlc typed queries (for complex/typed SQL)
+	SQLDB    *sql.DB     // raw handle used by the ORM
+	Dialect  orm.Dialect // driver-specific SQL dialect (from DB_DRIVER)
+	Hooks    *togo.Hooks
+	Log      *slog.Logger
+	Cache    togo.Cache
+	Queue    togo.Queue
+	Storage  togo.Storage
+	Realtime togo.Broker
 }
 
 // New builds the container from the kernel, opening the DB if configured.
