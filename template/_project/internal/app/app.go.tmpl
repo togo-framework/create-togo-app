@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	"github.com/togo-framework/togo"
-	"github.com/togo-framework/togo/orm"
 	_ "modernc.org/sqlite" // default DB driver (SQLite). DB provider plugins register others.
 
 	db "{{.Module}}/internal/db/gen"
@@ -21,7 +20,7 @@ type App struct {
 	Kernel   *togo.Kernel
 	DB       *db.Queries // sqlc typed queries (for complex/typed SQL)
 	SQLDB    *sql.DB     // raw handle used by the ORM
-	Dialect  orm.Dialect // driver-specific SQL dialect (from DB_DRIVER)
+	Dialect  togo.Dialect // driver-specific SQL dialect (from DB_DRIVER)
 	Hooks    *togo.Hooks
 	Log      *slog.Logger
 	Cache    togo.Cache
