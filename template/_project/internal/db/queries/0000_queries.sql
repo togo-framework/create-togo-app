@@ -1,0 +1,2 @@
+-- togo queries. Per-resource query files are added by `togo make:resource`.
+-- Placeholder so the directory exists for `sqlc`/`togo generate`.
