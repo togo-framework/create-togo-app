@@ -17,11 +17,11 @@ func main() {
 	a := app.New(ctx, k)
 	defer k.Close()
 
-	if a.DB == nil {
+	if a.SQLDB == nil {
 		k.Log.Error("seed: database unavailable")
 		return
 	}
-	if err := seeders.SeedAll(ctx, a.DB); err != nil {
+	if err := seeders.SeedAll(ctx, a); err != nil {
 		k.Log.Error("seed failed", "err", err)
 		return
 	}
