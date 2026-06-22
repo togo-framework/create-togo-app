@@ -54,6 +54,9 @@ func New(ctx context.Context, k *togo.Kernel) *App {
 	return a
 }
 
+// T translates a key in the configured locale (backend trans()).
+func (a *App) T(key string) string { return a.Kernel.T(key) }
+
 // Emit dispatches an event: it fires kernel hooks (for in-process listeners /
 // actions) AND broadcasts over SSE so frontend subscribers receive it. This is
 // the event-driven bridge between backend and frontend.
