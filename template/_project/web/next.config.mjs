@@ -8,6 +8,7 @@ const nextConfig = {
     return [
       { source: "/api/:path*", destination: `${origin}/api/:path*` },
       { source: "/graphql", destination: `${origin}/graphql` },
+      { source: "/events", destination: `${origin}/events` },
     ];
   },
 };
