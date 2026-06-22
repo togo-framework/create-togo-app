@@ -1,2 +1,4 @@
--- togo queries. Per-resource query files are added by `togo make:resource`.
--- Placeholder so the directory exists for `sqlc`/`togo generate`.
+-- togo placeholder query so sqlc has input on a fresh project. Real per-resource
+-- queries are added by `togo make:resource`. Safe to keep or remove later.
+-- name: Ping :one
+SELECT 1 AS ok;
