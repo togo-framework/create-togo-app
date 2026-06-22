@@ -17,6 +17,7 @@ import (
 
 	graphgen "{{.Module}}/internal/graph/gen"
 	"{{.Module}}/internal/graph/resolvers"
+	_ "{{.Module}}/internal/plugins" // blank-imports installed plugins (togo install)
 	"{{.Module}}/internal/rest"
 )
 
