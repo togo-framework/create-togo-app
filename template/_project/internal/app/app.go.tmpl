@@ -30,7 +30,7 @@ type App struct {
 	Cache    cache.Cache
 	Queue    queue.Queue
 	Storage  storage.Storage
-	Realtime *realtime.Broker
+	Realtime realtime.Broker
 }
 
 // New builds the container from the kernel, opening the DB if configured.
@@ -62,6 +62,9 @@ func (a *App) T(key string) string { return a.Kernel.T(key) }
 // the event-driven bridge between backend and frontend.
 func (a *App) Emit(ctx context.Context, event string, payload any) {
 	_ = a.Hooks.Fire(ctx, event, payload)
+	if a.Realtime == nil {
+		return // realtime feature not enabled
+	}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		data = []byte("{}")
