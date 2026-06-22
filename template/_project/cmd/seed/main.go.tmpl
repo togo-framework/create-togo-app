@@ -7,22 +7,21 @@ import (
 
 	"github.com/togo-framework/togo"
 
-	db "{{.Module}}/internal/db/gen"
+	"{{.Module}}/internal/app"
 	"{{.Module}}/internal/db/seeders"
 )
 
 func main() {
 	k := togo.New()
 	ctx := context.Background()
-
-	pool, err := k.DB(ctx)
-	if err != nil {
-		k.Log.Error("seed: database unavailable", "err", err)
-		return
-	}
+	a := app.New(ctx, k)
 	defer k.Close()
 
-	if err := seeders.SeedAll(ctx, db.New(pool)); err != nil {
+	if a.DB == nil {
+		k.Log.Error("seed: database unavailable")
+		return
+	}
+	if err := seeders.SeedAll(ctx, a.DB); err != nil {
 		k.Log.Error("seed failed", "err", err)
 		return
 	}

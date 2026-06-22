@@ -16,7 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/togo-framework/togo"
 
-	db "{{.Module}}/internal/db/gen"
+	"{{.Module}}/internal/app"
 	graphgen "{{.Module}}/internal/graph/gen"
 	"{{.Module}}/internal/graph/resolvers"
 	_ "{{.Module}}/internal/plugins" // blank-imports installed plugins (togo install)
@@ -31,21 +31,15 @@ func main() {
 
 	k := togo.New()
 	ctx := context.Background()
-
-	var q *db.Queries
-	if pool, err := k.DB(ctx); err != nil {
-		k.Log.Warn("database unavailable", "err", err)
-	} else {
-		q = db.New(pool)
-	}
+	a := app.New(ctx, k)
 
 	// REST + OpenAPI (Huma).
 	api := humachi.New(k.Router, huma.DefaultConfig("{{.AppPascal}} API", "0.1.0"))
-	rest.RegisterRoutes(api, q)
+	rest.RegisterRoutes(api, a)
 
 	// GraphQL (gqlgen), togo-owned resolvers backed by sqlc.
 	gql := handler.NewDefaultServer(graphgen.NewExecutableSchema(graphgen.Config{
-		Resolvers: &resolvers.Resolver{Q: q},
+		Resolvers: &resolvers.Resolver{App: a},
 	}))
 	k.Router.Handle(k.Config.GraphQLPath, gql)
 	k.Router.Handle("/graphql/play", playground.Handler("{{.AppPascal}} GraphQL", k.Config.GraphQLPath))

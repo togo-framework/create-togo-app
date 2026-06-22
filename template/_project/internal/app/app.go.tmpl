@@ -1,0 +1,31 @@
+// Package app is the application container (Laravel-style): shared services
+// wired once and handed to controllers, resolvers, actions, and seeders.
+package app
+
+import (
+	"context"
+	"log/slog"
+
+	"github.com/togo-framework/togo"
+
+	db "{{.Module}}/internal/db/gen"
+)
+
+// App holds the shared services. Add cache/queue/storage here as you adopt them.
+type App struct {
+	Kernel *togo.Kernel
+	DB     *db.Queries
+	Hooks  *togo.Hooks
+	Log    *slog.Logger
+}
+
+// New builds the container from the kernel, opening the DB if configured.
+func New(ctx context.Context, k *togo.Kernel) *App {
+	a := &App{Kernel: k, Hooks: k.Hooks, Log: k.Log}
+	if pool, err := k.DB(ctx); err == nil {
+		a.DB = db.New(pool)
+	} else {
+		k.Log.Warn("database unavailable", "err", err)
+	}
+	return a
+}

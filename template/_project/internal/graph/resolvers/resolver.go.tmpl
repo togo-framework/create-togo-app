@@ -3,13 +3,13 @@ package resolvers
 import (
 	"context"
 
-	db "{{.Module}}/internal/db/gen"
+	"{{.Module}}/internal/app"
 	graphgen "{{.Module}}/internal/graph/gen"
 )
 
-// Resolver is the GraphQL root, holding the sqlc query set.
+// Resolver is the GraphQL root, holding the app container (DB, hooks, log).
 type Resolver struct {
-	Q *db.Queries
+	App *app.App
 }
 
 func (r *Resolver) Query() graphgen.QueryResolver       { return &queryResolver{r} }
@@ -18,5 +18,5 @@ func (r *Resolver) Mutation() graphgen.MutationResolver { return &mutationResolv
 type queryResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 
-func (r *queryResolver) Health(ctx context.Context) (string, error)  { return "ok", nil }
-func (r *mutationResolver) Noop(ctx context.Context) (bool, error)   { return true, nil }
+func (r *queryResolver) Health(ctx context.Context) (string, error) { return "ok", nil }
+func (r *mutationResolver) Noop(ctx context.Context) (bool, error)  { return true, nil }
