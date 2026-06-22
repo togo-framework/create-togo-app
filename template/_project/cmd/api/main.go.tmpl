@@ -49,8 +49,10 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok","service":"{{.App}}"}`))
 	})
 
-	// Real-time event stream (SSE). Frontend subscribes via useEvents().
-	k.Router.Get("/events", k.Realtime.Handler())
+	// Real-time event stream (SSE) — only when the realtime feature is enabled.
+	if k.Realtime != nil {
+		k.Router.Get("/events", k.Realtime.Handler())
+	}
 
 	fmt.Printf("→ {{.App}} listening on %s  (GraphQL %s · REST %s · docs %s)\n",
 		k.Config.Addr, k.Config.GraphQLPath, k.Config.RESTPath, k.Config.DocsPath)
