@@ -1,5 +1,6 @@
 // Command api is the {{.App}} HTTP entrypoint. It builds the togo kernel and
-// mounts both interfaces on it: Huma (REST + OpenAPI) and gqlgen (GraphQL).
+// mounts both interfaces on it: Huma (REST + OpenAPI) and gqlgen (GraphQL),
+// backed by sqlc queries.
 package main
 
 import (
@@ -15,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/togo-framework/togo"
 
+	db "{{.Module}}/internal/db/gen"
 	graphgen "{{.Module}}/internal/graph/gen"
 	"{{.Module}}/internal/graph/resolvers"
 	_ "{{.Module}}/internal/plugins" // blank-imports installed plugins (togo install)
@@ -28,19 +30,26 @@ func main() {
 	}
 
 	k := togo.New()
+	ctx := context.Background()
 
-	// REST + OpenAPI (Huma) mounted on the kernel's chi router.
+	var q *db.Queries
+	if pool, err := k.DB(ctx); err != nil {
+		k.Log.Warn("database unavailable", "err", err)
+	} else {
+		q = db.New(pool)
+	}
+
+	// REST + OpenAPI (Huma).
 	api := humachi.New(k.Router, huma.DefaultConfig("{{.AppPascal}} API", "0.1.0"))
-	rest.RegisterRoutes(api)
+	rest.RegisterRoutes(api, q)
 
-	// GraphQL (gqlgen).
+	// GraphQL (gqlgen), togo-owned resolvers backed by sqlc.
 	gql := handler.NewDefaultServer(graphgen.NewExecutableSchema(graphgen.Config{
-		Resolvers: &resolvers.Resolver{},
+		Resolvers: &resolvers.Resolver{Q: q},
 	}))
 	k.Router.Handle(k.Config.GraphQLPath, gql)
 	k.Router.Handle("/graphql/play", playground.Handler("{{.AppPascal}} GraphQL", k.Config.GraphQLPath))
 
-	// Always-on health endpoint (the frontend dashboard pings this).
 	k.Router.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ok","service":"{{.App}}"}`))
@@ -49,7 +58,7 @@ func main() {
 	fmt.Printf("→ {{.App}} listening on %s  (GraphQL %s · REST %s · docs %s)\n",
 		k.Config.Addr, k.Config.GraphQLPath, k.Config.RESTPath, k.Config.DocsPath)
 	defer k.Close()
-	if err := k.Serve(context.Background()); err != nil {
+	if err := k.Serve(ctx); err != nil {
 		panic(err)
 	}
 }
@@ -58,7 +67,7 @@ func main() {
 func dumpOpenAPI() {
 	router := chi.NewMux()
 	api := humachi.New(router, huma.DefaultConfig("{{.AppPascal}} API", "0.1.0"))
-	rest.RegisterRoutes(api)
+	rest.RegisterRoutes(api, nil)
 	b, err := api.OpenAPI().YAML()
 	if err != nil {
 		panic(err)

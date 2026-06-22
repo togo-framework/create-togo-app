@@ -1,0 +1,30 @@
+// Command seed populates the database with sample data via the generated seeders.
+// Run with `togo seed`.
+package main
+
+import (
+	"context"
+
+	"github.com/togo-framework/togo"
+
+	db "{{.Module}}/internal/db/gen"
+	"{{.Module}}/internal/db/seeders"
+)
+
+func main() {
+	k := togo.New()
+	ctx := context.Background()
+
+	pool, err := k.DB(ctx)
+	if err != nil {
+		k.Log.Error("seed: database unavailable", "err", err)
+		return
+	}
+	defer k.Close()
+
+	if err := seeders.SeedAll(ctx, db.New(pool)); err != nil {
+		k.Log.Error("seed failed", "err", err)
+		return
+	}
+	k.Log.Info("seed complete")
+}
