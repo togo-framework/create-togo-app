@@ -5,9 +5,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
@@ -43,10 +46,51 @@ func Boot() *app.App {
 		_, _ = fmt.Fprintf(w, `{"status":"ok","service":"{{.App}}","togo":%q}`, togoVersion())
 	})
 
+	// Resource registry for the admin dashboard — auto-discovers tables from the
+	// manifest so generated resources appear in the dashboard without config.
+	k.Router.Get("/api/_meta/resources", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(resourcesJSON())
+	})
+
 	if k.Realtime != nil { // realtime feature enabled
 		k.Router.Get("/events", k.Realtime.Handler())
 	}
 	return a
+}
+
+// resourcesJSON returns the resource list from togo.resources.yaml as
+// {"resources":[{"name","table"}]} for the admin dashboard.
+func resourcesJSON() []byte {
+	data, err := os.ReadFile("togo.resources.yaml")
+	if err != nil {
+		return []byte(`{"resources":[]}`)
+	}
+	type res struct {
+		Name  string `json:"name"`
+		Table string `json:"table"`
+	}
+	var out []res
+	var cur res
+	for _, ln := range strings.Split(string(data), "\n") {
+		t := strings.TrimSpace(ln)
+		switch {
+		case strings.HasPrefix(t, "- name:"):
+			if cur.Table != "" {
+				out = append(out, cur)
+			}
+			cur = res{Name: strings.TrimSpace(strings.TrimPrefix(t, "- name:"))}
+		case strings.HasPrefix(t, "name:"):
+			cur.Name = strings.TrimSpace(strings.TrimPrefix(t, "name:"))
+		case strings.HasPrefix(t, "table:"):
+			cur.Table = strings.TrimSpace(strings.TrimPrefix(t, "table:"))
+		}
+	}
+	if cur.Table != "" {
+		out = append(out, cur)
+	}
+	b, _ := json.Marshal(map[string]any{"resources": out})
+	return b
 }
 
 // togoVersion reports the togo framework version this app is built against, read
