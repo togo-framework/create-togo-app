@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@togo-framework/ui/styles.css";
+@source "../node_modules/@togo-framework/ui/dist";
+@custom-variant dark (&:where(.dark, .dark *));
+
+body { margin: 0; font-family: var(--tg-font); }
