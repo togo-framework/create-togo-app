@@ -55,7 +55,7 @@ export function AdminResource() {
 
   return (
     <div className="mx-auto max-w-6xl p-8">
-      <PageHeader title={resource} count={rows?.length}
+      <PageHeader title={resource} description={`${rows?.length ?? 0} records`}
         actions={<Button onClick={() => open("create")}>+ Create</Button>} />
       {err && <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
       <div className="overflow-x-auto rounded-xl border border-border">
