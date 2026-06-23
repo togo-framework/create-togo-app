@@ -11,14 +11,14 @@ export function AdminHome() {
   useEffect(() => { metaResources().then(setList).finally(() => setLoading(false)); }, []);
   return (
     <div className="mx-auto max-w-5xl p-8">
-      <PageHeader title="Admin" count={list.length} subtitle="Manage your resources" />
+      <PageHeader title="Admin" description={`Manage your resources · ${list.length}`} />
       {loading ? <p className="text-muted-foreground">Loading…</p> : list.length === 0 ? (
-        <Card padded><p className="text-muted-foreground">No resources yet — run `togo make:resource Post title:string` and they'll appear here.</p></Card>
+        <Card className="p-5"><p className="text-muted-foreground">No resources yet — run `togo make:resource Post title:string` and they'll appear here.</p></Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((r) => (
             <button key={r.table} onClick={() => nav({ to: "/admin/$resource", params: { resource: r.table } })} className="text-start">
-              <Card padded className="transition hover:border-primary/50">
+              <Card className="p-5 transition hover:border-primary/50">
                 <div className="flex items-center gap-3">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary"><Table2 className="h-4 w-4" /></span>
                   <span><span className="block font-medium capitalize">{r.name || r.table}</span><span className="block text-xs text-muted-foreground">/api/{r.table}</span></span>
