@@ -98,6 +98,7 @@ export function AdminResource() {
         getRowId={(r) => String((r as Row).id)}
         showGlobalSearch
         showCsvExport
+        language={language}
       />
 
       {/* Create / edit — form built from the resource fields. */}
