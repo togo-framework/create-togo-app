@@ -24,17 +24,16 @@ services:
 volumes:
   pgdata:
 {{- else if eq .DB "togo-postgres" -}}
-# togo-postgres — the batteries-included Supabase build.
-# REAL images: ParadeDB (pg_search + pgvector + pg_analytics/duckdb) and NATS JetStream (MQ).
-# In-app (Go libraries, NOT containers): River (jobs, riverqueue.com) and Atlas (migrations).
-# Extensions enabled via init SQL where the image supports them (pgvector, pg_search).
-# Optional services (GoTrue auth, Storage) are commented placeholders — uncomment + configure,
-# or run `supabase start` for the full managed stack. pg_cron / pg_partman require an image that
-# ships them; enable in init SQL if available.
+# togo-postgres — the batteries-included database.
+# Image: ghcr.io/togo-framework/db (built from github.com/togo-framework/db) — ParadeDB
+# (pg_search + pgvector + pg_analytics/duckdb) WITH pg_cron + pg_partman baked in; the
+# extensions are enabled on first init. NATS JetStream is the MQ. River (jobs) + Atlas
+# (migrations) are in-app Go libraries. GoTrue (auth) + Storage are optional services below.
 services:
   postgres:
-    image: paradedb/paradedb:latest   # Postgres + pg_search (ParadeDB) + pgvector + pg_analytics (duckdb)
+    image: ghcr.io/togo-framework/db:latest
     container_name: {{.App}}-pg
+    command: ["postgres", "-c", "shared_preload_libraries=pg_cron", "-c", "cron.database_name={{.App}}"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
