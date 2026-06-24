@@ -1,0 +1,22 @@
+package app
+{{if eq .DB "mongodb"}}
+import (
+	"context"
+	"os"
+	"time"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+// Mongo opens a MongoDB client from DATABASE_URL.
+//
+// NOTE: togo's SQL ORM (sqlc + Atlas + `togo make:resource`) targets Postgres /
+// MySQL / SQLite. MongoDB is wired as an additional client you use directly — it is
+// NOT the SQL ORM backend. Reach for this for document-store workloads.
+func Mongo(ctx context.Context) (*mongo.Client, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	return mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("DATABASE_URL")))
+}
+{{end}}
