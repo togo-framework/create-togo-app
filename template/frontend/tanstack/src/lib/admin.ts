@@ -6,6 +6,39 @@ export async function adminList(table: string): Promise<any[]> {
   const d = await r.json();
   return Array.isArray(d) ? d : (d.items ?? d.data ?? []);
 }
+
+export interface PagedResult {
+  items: any[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Fetch a resource page with server-side pagination and optional sort/search.
+ * Falls back to slicing the flat list if the API doesn't support pagination params. */
+export async function adminListPaged(
+  table: string,
+  opts: { page: number; pageSize: number; sort?: string; order?: "asc" | "desc"; search?: string },
+): Promise<PagedResult> {
+  const qs = new URLSearchParams();
+  qs.set("page", String(opts.page));
+  qs.set("page_size", String(opts.pageSize));
+  if (opts.sort) qs.set("sort", opts.sort);
+  if (opts.order) qs.set("order", opts.order);
+  if (opts.search) qs.set("q", opts.search);
+
+  const r = await fetch(`${API}/api/${table}?${qs}`, { credentials: "include" });
+  if (!r.ok) throw new Error(`load failed (${r.status})`);
+  const d = await r.json();
+  // Server returns { items, total } → use directly.
+  if (d && typeof d.total === "number") {
+    return { items: d.items ?? d.data ?? [], total: d.total, page: opts.page, pageSize: opts.pageSize };
+  }
+  // Flat array → client-side slice (graceful degradation).
+  const all: any[] = Array.isArray(d) ? d : (d.items ?? d.data ?? []);
+  const start = (opts.page - 1) * opts.pageSize;
+  return { items: all.slice(start, start + opts.pageSize), total: all.length, page: opts.page, pageSize: opts.pageSize };
+}
 export async function adminGet(table: string, id: string): Promise<any> {
   const r = await fetch(`${API}/api/${table}/${id}`, { credentials: "include" });
   if (!r.ok) throw new Error(`load failed (${r.status})`);
@@ -32,7 +65,15 @@ export const adminUpdate = (t: string, id: string, data: Record<string, unknown>
 export const adminDelete = (t: string, id: string) => write("DELETE", `/api/${t}/${id}`);
 
 export interface ResourceField { name: string; type: string; nullable: boolean; enum?: string[]; relation?: string }
-export interface ResourceMeta { name: string; table: string; fields?: ResourceField[] }
+export interface ResourceMeta {
+  name: string;
+  table: string;
+  fields?: ResourceField[];
+  /** Optional sidebar group label (e.g. "Content", "Commerce"). Groups sidebar nav. */
+  group?: string;
+  /** Optional lucide icon name for the sidebar entry (e.g. "users", "package"). */
+  icon?: string;
+}
 
 /** The form control a field renders with — Filament-style, derived from the schema. */
 export type Control = "switch" | "number" | "datetime" | "date" | "textarea" | "email" | "select" | "relation" | "json" | "text";

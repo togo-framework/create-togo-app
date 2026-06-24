@@ -1,12 +1,13 @@
 import { ReactNode } from "react";
-import { ThemeProvider, LanguageProvider } from "@togo-framework/ui";
+import { ThemeProvider, LanguageProvider, themes } from "@togo-framework/ui";
 
-// ThemeProvider applies the ToGO brand tokens + dark/light switching (data-theme on
-// <html>, persisted to localStorage). No hardcoded brand colors — the kit's ToGO
-// palette drives everything. LanguageProvider supplies EN/AR i18n + RTL.
+// ThemeProvider applies the ToGO brand tokens + multi-theme switching (data-theme on
+// <html>, persisted to localStorage). The full `themes` list enables the ThemePicker
+// to cycle through all presets (dark, light, purple, rose, emerald, and light variants).
+// LanguageProvider supplies EN/AR i18n + RTL.
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider>
+    <ThemeProvider themes={themes}>
       <LanguageProvider initialLanguage="en">{children}</LanguageProvider>
     </ThemeProvider>
   );

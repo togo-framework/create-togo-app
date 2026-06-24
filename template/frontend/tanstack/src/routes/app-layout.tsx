@@ -1,29 +1,41 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useRouterState, Link } from "@tanstack/react-router";
-import { LayoutGrid, Table2, User, LogOut, Layers, ChevronDown, Sun, Moon } from "lucide-react";
+import { LayoutGrid, Table2, User, LogOut, Layers, ChevronDown } from "lucide-react";
 import {
   SidebarProvider, Sidebar, SidebarHeader, SidebarContent,
   SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
   SidebarInset, SidebarTrigger, Avatar, AvatarFallback,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  StatusBadge, Button, useTheme, useT,
+  StatusBadge, ThemePicker, useT,
 } from "@togo-framework/ui";
 import { auth, sessionMe, clearSession, type Me } from "../lib/auth";
-import { metaResources, adminList } from "../lib/admin";
+import { metaResources, adminList, type ResourceMeta } from "../lib/admin";
 import { ToastProvider } from "../components/admin/toast";
 import { API, APP_NAME } from "../lib/api";
+
+/** Group a flat resource list by the optional `group` field.
+ * Resources with no group fall into the "Resources" default. */
+function groupResources(resources: ResourceMeta[]): Map<string, ResourceMeta[]> {
+  const map = new Map<string, ResourceMeta[]>();
+  for (const r of resources) {
+    const g = r.group ?? "Resources";
+    if (!map.has(g)) map.set(g, []);
+    map.get(g)!.push(r);
+  }
+  return map;
+}
+
+const ar_label = (en: string, ar: string, isAr: boolean) => isAr ? ar : en;
 
 export function AppLayout() {
   const nav = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { theme, setTheme } = useTheme();
   const { language } = useT();
   const [me, setMe] = useState<Me | null>(null);
-  const [resources, setResources] = useState<{ name: string; table: string }[]>([]);
+  const [resources, setResources] = useState<ResourceMeta[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [live, setLive] = useState(false);
   const ar = language === "ar";
-  const isDark = theme !== "light";
 
   useEffect(() => {
     // Auth is already guaranteed by the route's beforeLoad guard — just read the cached user.
@@ -41,6 +53,7 @@ export function AppLayout() {
 
   const initial = (me?.email ?? "?").charAt(0).toUpperCase();
   const go = (to: string) => nav({ to });
+  const grouped = groupResources(resources);
 
   return (
     <ToastProvider dir={ar ? "rtl" : "ltr"}>
@@ -54,22 +67,47 @@ export function AppLayout() {
           </Link>
         </SidebarHeader>
         <SidebarContent>
+          {/* Core nav — always visible */}
           <SidebarGroup>
             <SidebarMenu>
-              <SidebarMenuItem><SidebarMenuButton isActive={pathname === "/dashboard"} tooltip={ar ? "لوحة التحكم" : "Dashboard"} onClick={() => go("/dashboard")}><LayoutGrid className="h-4 w-4" /><span>{ar ? "لوحة التحكم" : "Dashboard"}</span></SidebarMenuButton></SidebarMenuItem>
-              <SidebarMenuItem><SidebarMenuButton isActive={pathname === "/admin"} tooltip={ar ? "الإدارة" : "Admin"} onClick={() => go("/admin")}><Table2 className="h-4 w-4" /><span>{ar ? "الإدارة" : "Admin"}</span></SidebarMenuButton></SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={pathname === "/dashboard"} tooltip={ar_label("Dashboard", "لوحة التحكم", ar)} onClick={() => go("/dashboard")}>
+                  <LayoutGrid className="h-4 w-4" /><span>{ar_label("Dashboard", "لوحة التحكم", ar)}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={pathname === "/admin"} tooltip={ar_label("Admin", "الإدارة", ar)} onClick={() => go("/admin")}>
+                  <Table2 className="h-4 w-4" /><span>{ar_label("Admin", "الإدارة", ar)}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
-          {resources.length > 0 && (
-            <SidebarGroup>
-              <SidebarGroupLabel>{ar ? "الموارد" : "Resources"}</SidebarGroupLabel>
+
+          {/* Resource groups — each `group` value becomes its own sidebar section */}
+          {Array.from(grouped.entries()).map(([groupName, groupResources]) => (
+            <SidebarGroup key={groupName}>
+              <SidebarGroupLabel>{groupName}</SidebarGroupLabel>
               <SidebarMenu>
-                {resources.map((r) => (
-                  <SidebarMenuItem key={r.table}><SidebarMenuButton isActive={pathname === `/admin/${r.table}`} tooltip={r.name || r.table} onClick={() => go(`/admin/${r.table}`)}><Table2 className="h-4 w-4" /><span className="capitalize">{r.name || r.table}</span>{counts[r.table] !== undefined && <span className="ms-auto rounded-full bg-muted px-1.5 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{counts[r.table]}</span>}</SidebarMenuButton></SidebarMenuItem>
+                {groupResources.map((r) => (
+                  <SidebarMenuItem key={r.table}>
+                    <SidebarMenuButton
+                      isActive={pathname === `/admin/${r.table}`}
+                      tooltip={r.name || r.table}
+                      onClick={() => go(`/admin/${r.table}`)}
+                    >
+                      <Table2 className="h-4 w-4" />
+                      <span className="capitalize">{r.name || r.table}</span>
+                      {counts[r.table] !== undefined && (
+                        <span className="ms-auto rounded-full bg-muted px-1.5 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                          {counts[r.table]}
+                        </span>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 ))}
               </SidebarMenu>
             </SidebarGroup>
-          )}
+          ))}
         </SidebarContent>
       </Sidebar>
 
@@ -77,12 +115,14 @@ export function AppLayout() {
         <header className="flex h-14 items-center justify-between gap-2 border-b border-border px-4">
           <div className="flex items-center gap-3">
             <SidebarTrigger />
-            <StatusBadge tone={live ? "success" : "neutral"}>{live ? (ar ? "متصل مباشرة" : "Realtime connected") : (ar ? "غير متصل" : "Offline")}</StatusBadge>
+            <StatusBadge tone={live ? "success" : "neutral"}>
+              {live ? ar_label("Realtime connected", "متصل مباشرة", ar) : ar_label("Offline", "غير متصل", ar)}
+            </StatusBadge>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" aria-label={ar ? "تبديل السمة" : "Toggle theme"} onClick={() => setTheme(isDark ? "light" : "dark")}>
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+            {/* Theme picker — cycles through all presets (dark, light, purple, rose, emerald, …) */}
+            <ThemePicker size="default" />
+
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 rounded-full py-1 pe-3 ps-1 outline-none transition hover:bg-accent">
                 <Avatar className="h-8 w-8"><AvatarFallback>{initial}</AvatarFallback></Avatar>
@@ -92,10 +132,13 @@ export function AppLayout() {
               <DropdownMenuContent align="end" className="w-56">
                 <div className="truncate px-2 py-1.5 text-xs text-muted-foreground">{me?.email ?? ""}</div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => go("/profile")}><User className="me-2 h-4 w-4" />{ar ? "الملف الشخصي" : "Profile"}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>{isDark ? <Sun className="me-2 h-4 w-4" /> : <Moon className="me-2 h-4 w-4" />}{isDark ? (ar ? "الوضع الفاتح" : "Light mode") : (ar ? "الوضع الداكن" : "Dark mode")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go("/profile")}>
+                  <User className="me-2 h-4 w-4" />{ar_label("Profile", "الملف الشخصي", ar)}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive" onClick={async () => { await auth.logout(); clearSession(); go("/login"); }}><LogOut className="me-2 h-4 w-4" />{ar ? "تسجيل الخروج" : "Sign out"}</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={async () => { await auth.logout(); clearSession(); go("/login"); }}>
+                  <LogOut className="me-2 h-4 w-4" />{ar_label("Sign out", "تسجيل الخروج", ar)}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

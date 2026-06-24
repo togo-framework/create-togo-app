@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "@tanstack/react-router";
-import type { ColumnDef } from "@tanstack/react-table";
 import { Pencil, Trash2, Eye, Plus } from "lucide-react";
 import {
   PageHeader, Button, Badge, DataTable,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
   useT,
+  type ColumnDef, type SortingState, type PaginationState, type DataTableServerState,
 } from "@togo-framework/ui";
 import {
-  adminList, adminCreate, adminUpdate, adminDelete, resourceFields,
-  controlFor, formatValue, type ResourceField,
+  adminListPaged, adminCreate, adminUpdate, adminDelete, resourceFields,
+  controlFor, formatValue, type ResourceField, type PagedResult,
 } from "../lib/admin";
 import { ResourceForm, validateForm } from "../components/admin/ResourceForm";
 import { Infolist } from "../components/admin/Infolist";
@@ -22,6 +22,8 @@ type Mode = "create" | "edit" | "view" | "delete";
 
 const labelOf = (name: string) => name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+const DEFAULT_PAGE_SIZE = 20;
+
 export function AdminResource() {
   const { resource } = useParams({ strict: false }) as { resource: string };
   const { language } = useT();
@@ -29,24 +31,69 @@ export function AdminResource() {
   const ar = language === "ar";
   const dir = ar ? "rtl" : "ltr";
   const single = resource.replace(/s$/, "");
-  const [rows, setRows] = useState<Row[] | null>(null);
+
+  // Data state
+  const [result, setResult] = useState<PagedResult | null>(null);
   const [fields, setFields] = useState<ResourceField[]>([]);
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Server-side state (lifted from DataTable via serverCallbacks)
+  const [serverSorting, setServerSorting] = useState<SortingState>([]);
+  const [serverPagination, setServerPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
+  const [serverGlobalFilter, setServerGlobalFilter] = useState("");
+
+  // Modal + form state
   const [modal, setModal] = useState<{ mode: Mode; row?: Row } | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  async function refresh() { setRows(await adminList(resource).catch(() => [])); }
+  // Track current resource so we reset pagination on navigation
+  const resourceRef = useRef(resource);
+
+  const refresh = useCallback(async (
+    pagination: PaginationState = serverPagination,
+    sorting: SortingState = serverSorting,
+    globalFilter: string = serverGlobalFilter,
+  ) => {
+    const s = sorting[0];
+    const r = await adminListPaged(resource, {
+      page: pagination.pageIndex + 1,
+      pageSize: pagination.pageSize,
+      sort: s?.id,
+      order: s ? (s.desc ? "desc" : "asc") : undefined,
+      search: globalFilter || undefined,
+    }).catch(() => ({ items: [], total: 0, page: 1, pageSize: pagination.pageSize }));
+    setResult(r);
+  }, [resource, serverPagination, serverSorting, serverGlobalFilter]);
+
   useEffect(() => {
-    setRows(null);
+    // Reset state when switching resources
+    if (resourceRef.current !== resource) {
+      resourceRef.current = resource;
+      setServerSorting([]);
+      setServerPagination({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
+      setServerGlobalFilter("");
+    }
+    setResult(null);
     resourceFields(resource).then(setFields);
-    refresh();
+    refresh({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE }, [], "");
+
     const es = new EventSource(`${API}/events`);
     es.onmessage = () => refresh();
     return () => es.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource]);
+
+  // DataTable server-side callback — called by DataTable on sort/filter/page change.
+  const serverCallbacks = useMemo(() => ({
+    onStateChange: (state: DataTableServerState) => {
+      setServerSorting(state.sorting);
+      setServerPagination(state.pagination);
+      setServerGlobalFilter(state.globalFilter);
+      refresh(state.pagination, state.sorting, state.globalFilter);
+    },
+  }), [refresh]);
 
   function open(mode: Mode, row?: Row) {
     const init: Record<string, string> = {};
@@ -114,22 +161,23 @@ export function AdminResource() {
       placeholder_en: labelOf(f.name), placeholder_ar: labelOf(f.name),
     })), [fields]);
 
+  const rows = result?.items ?? [];
   const bulkActions = useMemo(() => [
-    { id: "export", label_en: "Export", label_ar: "تصدير", variant: "outline" as const, onAction: (ids: string[]) => exportRows((rows ?? []).filter((r) => ids.includes(String(r.id))), resource) },
+    { id: "export", label_en: "Export", label_ar: "تصدير", variant: "outline" as const, onAction: (ids: string[]) => exportRows(rows.filter((r) => ids.includes(String(r.id))), resource) },
     { id: "delete", label_en: "Delete", label_ar: "حذف", variant: "destructive" as const, onAction: (ids: string[]) => del(ids) },
   ], [rows, resource, ar]);
 
   return (
     <div className="space-y-6 p-6" dir={dir}>
-      <PageHeader title={labelOf(resource)} description={`${rows?.length ?? 0} ${ar ? "سجل" : "records"}`}
+      <PageHeader title={labelOf(resource)} description={`${result?.total ?? 0} ${ar ? "سجل" : "records"}`}
         actions={<Button onClick={() => open("create")}><Plus className="me-1.5 h-4 w-4" />{ar ? "إضافة" : "Create"}</Button>} />
       {err && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
 
       <DataTable
         columns={columns}
-        data={rows ?? []}
+        data={rows}
         getRowId={(r) => String((r as Row).id)}
-        loading={rows === null}
+        loading={result === null}
         showGlobalSearch
         showCsvExport
         csvFilename={resource}
@@ -138,6 +186,10 @@ export function AdminResource() {
         filterDefs={filterDefs}
         onRowClick={(r) => open("view", r as Row)}
         language={language}
+        /* Server-side mode: pagination, sorting, and global search are all server-driven.
+           DataTable fires onStateChange whenever any of these change; we re-fetch from the API. */
+        totalRows={result?.total}
+        serverCallbacks={serverCallbacks}
       />
 
       {/* Create / edit — schema form with validation + relation pickers. */}
