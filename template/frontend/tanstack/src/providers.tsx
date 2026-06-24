@@ -6,7 +6,7 @@ import { ThemeProvider, LanguageProvider } from "@togo-framework/ui";
 // palette drives everything. LanguageProvider supplies EN/AR i18n + RTL.
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider theme="dark">
+    <ThemeProvider>
       <LanguageProvider initialLanguage="en">{children}</LanguageProvider>
     </ThemeProvider>
   );
