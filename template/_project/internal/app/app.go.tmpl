@@ -9,13 +9,12 @@ import (
 	"log/slog"
 
 	"github.com/togo-framework/togo"
-{{- if or (eq .DB "postgres") (eq .DB "togo-postgres") (eq .DB "supabase")}}
-	_ "github.com/jackc/pgx/v5/stdlib" // DB_DRIVER=pgx (PostgreSQL)
-{{- else if eq .DB "mysql"}}
-	_ "github.com/go-sql-driver/mysql" // DB_DRIVER=mysql
-{{- else}}
-	_ "modernc.org/sqlite" // DB_DRIVER=sqlite (also the build-safe handle when DB=mongodb)
-{{- end}}
+
+	// SQLite is the kernel's built-in default driver (no plugin). Postgres/MySQL/
+	// MongoDB drivers ship as PLUGINS — `togo new --db <stack>` blank-imports the
+	// matching db-* plugin into internal/plugins, so the raw driver never lives in
+	// this app's go.mod or app.go (microkernel: drivers are plugins).
+	_ "modernc.org/sqlite"
 
 	db "{{.Module}}/internal/db/gen"
 )
