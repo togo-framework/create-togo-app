@@ -41,3 +41,12 @@ export const auth = {
   requestOtp: (email: string, purpose = "reset") => post("otp", { email, purpose }),
   verifyOtp: (email: string, code: string, purpose = "reset") => post("otp/verify", { email, code, purpose }),
 };
+
+// Session cache so the router's beforeLoad guards resolve /me once per navigation
+// pass instead of re-fetching on every route. Clear it after login/logout/register.
+let _meCache: Promise<Me | null> | null = null;
+export function sessionMe(force = false): Promise<Me | null> {
+  if (force || !_meCache) _meCache = auth.me();
+  return _meCache;
+}
+export function clearSession() { _meCache = null; }
