@@ -1,7 +1,81 @@
+{{- if eq .DB "sqlite" -}}
+# SQLite needs no services — the database is an embedded file (see DATABASE_URL).
+# To use a docker-backed database, recreate with:
+#   togo new {{.App}} --db postgres|togo-postgres|supabase|mysql|mongodb
+{{- else if eq .DB "postgres" -}}
 services:
   postgres:
     image: postgres:16
     container_name: {{.App}}-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: {{.App}}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+{{- else if eq .DB "togo-postgres" -}}
+# togo-postgres — the batteries-included Supabase build.
+# REAL images: ParadeDB (pg_search + pgvector + pg_analytics/duckdb) and NATS JetStream (MQ).
+# In-app (Go libraries, NOT containers): River (jobs, riverqueue.com) and Atlas (migrations).
+# Extensions enabled via init SQL where the image supports them (pgvector, pg_search).
+# Optional services (GoTrue auth, Storage) are commented placeholders — uncomment + configure,
+# or run `supabase start` for the full managed stack. pg_cron / pg_partman require an image that
+# ships them; enable in init SQL if available.
+services:
+  postgres:
+    image: paradedb/paradedb:latest   # Postgres + pg_search (ParadeDB) + pgvector + pg_analytics (duckdb)
+    container_name: {{.App}}-pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: {{.App}}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2          # NATS JetStream — message queue
+    container_name: {{.App}}-nats
+    command: ["-js"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  # gotrue:               # Supabase Auth (uncomment + set JWT_SECRET, DB_* to enable)
+  #   image: supabase/gotrue:v2.151.0
+  #   depends_on: [postgres]
+  #   ports: ["9999:9999"]
+  # storage:              # Supabase Storage (object storage over Postgres)
+  #   image: supabase/storage-api:v1.11.6
+  #   depends_on: [postgres]
+  #   ports: ["5000:5000"]
+
+volumes:
+  pgdata:
+{{- else if eq .DB "supabase" -}}
+# Supabase local stack. This compose runs the database; for the FULL managed stack
+# (GoTrue + Storage + Studio + Realtime + Kong) install the Supabase CLI and run
+# `supabase start` in this directory. Commented services below are placeholders.
+services:
+  postgres:
+    image: supabase/postgres:15.1.1.78
+    container_name: {{.App}}-supabase-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -16,5 +90,45 @@ services:
       timeout: 5s
       retries: 5
 
+  # studio:   # Supabase Studio — use `supabase start` for the wired-up dashboard
+  #   image: supabase/studio:latest
+  #   ports: ["54323:3000"]
+
 volumes:
   pgdata:
+{{- else if eq .DB "mysql" -}}
+services:
+  mysql:
+    image: mysql:8
+    container_name: {{.App}}-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: {{.App}}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysqldata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysqldata:
+{{- else if eq .DB "mongodb" -}}
+services:
+  mongodb:
+    image: mongo:7
+    container_name: {{.App}}-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+volumes:
+  mongodata:
+{{- end}}

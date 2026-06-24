@@ -7,5 +7,14 @@ require (
 	github.com/danielgtaylor/huma/v2 v2.27.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/togo-framework/togo v0.20.1
+{{- if or (eq .DB "postgres") (eq .DB "togo-postgres") (eq .DB "supabase")}}
+	github.com/jackc/pgx/v5 v5.7.1
+{{- else if eq .DB "mysql"}}
+	github.com/go-sql-driver/mysql v1.8.1
+{{- else if eq .DB "mongodb"}}
+	go.mongodb.org/mongo-driver v1.17.1
 	modernc.org/sqlite v1.34.1
+{{- else}}
+	modernc.org/sqlite v1.34.1
+{{- end}}
 )
