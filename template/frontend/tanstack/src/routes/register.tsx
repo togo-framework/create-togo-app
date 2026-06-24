@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import { AuthCard, AuthErrorAlert, Input, Label, Button, type AuthCardBrand } from "@togo-framework/ui";
-import { auth } from "../lib/auth";
+import { auth, clearSession } from "../lib/auth";
 import { APP_NAME } from "../lib/api";
 
 const BRAND: AuthCardBrand = { name: APP_NAME, icon: <ShieldCheck className="h-10 w-10" />, tagline: { en: "Authentication & identity", ar: "المصادقة والهوية" } };
@@ -13,7 +13,7 @@ export function Register() {
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr("");
-    try { await auth.register(email, password); nav({ to: "/dashboard" }); }
+    try { await auth.register(email, password); clearSession(); nav({ to: "/dashboard" }); }
     catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   }
   return (
