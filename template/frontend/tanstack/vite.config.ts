@@ -11,6 +11,11 @@ const proxy = {
   "/events": { target: apiTarget, changeOrigin: true },
   "/graphql": { target: apiTarget, changeOrigin: true },
   "/docs": { target: apiTarget, changeOrigin: true },
+  // Huma serves the OpenAPI document + $ref schemas at these paths; the Scalar docs
+  // UI fetches /openapi.yaml — without proxying it the dev server returns index.html
+  // and the docs page shows "Failed to parse OpenAPI file".
+  "/openapi": { target: apiTarget, changeOrigin: true },
+  "/schemas": { target: apiTarget, changeOrigin: true },
 };
 
 export default defineConfig({

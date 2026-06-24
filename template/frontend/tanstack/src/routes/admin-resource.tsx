@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Pencil, Trash2, Eye } from "lucide-react";
 import {
   PageHeader, Button, Input, Label, DataTable,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, useT,
 } from "@togo-framework/ui";
 import { adminList, adminCreate, adminUpdate, adminDelete, resourceFields, inputType, type ResourceField } from "../lib/admin";
 import { API } from "../lib/api";
@@ -14,6 +14,11 @@ type Mode = "create" | "edit" | "view" | "delete";
 
 export function AdminResource() {
   const { resource } = useParams({ strict: false }) as { resource: string };
+  const { language } = useT();
+  const ar = language === "ar";
+  const dir = ar ? "rtl" : "ltr";
+  const single = resource.replace(/s$/, "");
+  const modeLabel = (m?: Mode) => (m === "edit" ? (ar ? "تعديل" : "Edit") : (ar ? "إضافة" : "Create"));
   const [rows, setRows] = useState<Row[] | null>(null);
   const [fields, setFields] = useState<ResourceField[]>([]);
   const [err, setErr] = useState("");
@@ -69,7 +74,7 @@ export function AdminResource() {
     ...fields.map((f) => ({ accessorKey: f.name, header: f.name }) as ColumnDef<Row>),
     {
       id: "actions",
-      header: () => <span className="block text-end">Actions</span>,
+      header: () => <span className="block text-end">{ar ? "إجراءات" : "Actions"}</span>,
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
@@ -83,8 +88,8 @@ export function AdminResource() {
 
   return (
     <div className="space-y-6 p-6">
-      <PageHeader title={resource} description={`${rows?.length ?? 0} records`}
-        actions={<Button onClick={() => open("create")}>+ Create</Button>} />
+      <PageHeader title={resource} description={`${rows?.length ?? 0} ${ar ? "سجل" : "records"}`}
+        actions={<Button onClick={() => open("create")}>+ {ar ? "إضافة" : "Create"}</Button>} />
       {err && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
 
       <DataTable
@@ -97,8 +102,8 @@ export function AdminResource() {
 
       {/* Create / edit — form built from the resource fields. */}
       <Dialog open={modal?.mode === "create" || modal?.mode === "edit"} onOpenChange={(o) => !o && setModal(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle className="capitalize">{modal?.mode} {resource.replace(/s$/, "")}</DialogTitle></DialogHeader>
+        <DialogContent dir={dir}>
+          <DialogHeader><DialogTitle className="capitalize">{modeLabel(modal?.mode)} {single}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {fields.map((f) => (
               <div key={f.name} className="space-y-1.5">
@@ -108,13 +113,13 @@ export function AdminResource() {
               </div>
             ))}
           </div>
-          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>Cancel</Button><Button onClick={save}>Save</Button></DialogFooter>
+          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إلغاء" : "Cancel"}</Button><Button onClick={save}>{ar ? "حفظ" : "Save"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={modal?.mode === "view"} onOpenChange={(o) => !o && setModal(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle className="capitalize">{resource.replace(/s$/, "")}</DialogTitle></DialogHeader>
+        <DialogContent dir={dir}>
+          <DialogHeader><DialogTitle className="capitalize">{single}</DialogTitle></DialogHeader>
           <dl className="space-y-2 text-sm">
             {modal?.row && Object.entries(modal.row).map(([k, v]) => (
               <div key={k} className="flex gap-3 border-b border-border/60 py-1.5"><dt className="w-32 shrink-0 text-muted-foreground">{k}</dt><dd className="break-all">{String(v ?? "")}</dd></div>
@@ -124,10 +129,10 @@ export function AdminResource() {
       </Dialog>
 
       <Dialog open={modal?.mode === "delete"} onOpenChange={(o) => !o && setModal(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Delete record</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">This action cannot be undone. Delete this record?</p>
-          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>Cancel</Button><Button variant="destructive" onClick={del}>Delete</Button></DialogFooter>
+        <DialogContent dir={dir}>
+          <DialogHeader><DialogTitle>{ar ? "حذف السجل" : "Delete record"}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{ar ? "لا يمكن التراجع عن هذا الإجراء. حذف هذا السجل؟" : "This action cannot be undone. Delete this record?"}</p>
+          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إلغاء" : "Cancel"}</Button><Button variant="destructive" onClick={del}>{ar ? "حذف" : "Delete"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

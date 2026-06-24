@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import { ProfileView, useT } from "@togo-framework/ui";
+import { ProfileView, useT, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@togo-framework/ui";
 import { Languages } from "lucide-react";
 import { sessionMe, type Me } from "../lib/auth";
+
+// Add a language here to offer it across the app (it also needs strings in the kit's
+// LanguageProvider). The profile uses a dropdown so the list scales beyond two.
+const LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "ar", label: "العربية" },
+] as const;
 
 export function Profile() {
   const { language, setLanguage } = useT();
@@ -19,17 +26,16 @@ export function Profile() {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Languages className="h-4 w-4" />{ar ? "اللغة" : "Language"}</div>
           <p className="mb-4 text-sm text-muted-foreground">{ar ? "تغيير لغة الواجهة — يُطبّق فورًا." : "Change the interface language — applies instantly."}</p>
-          <div className="inline-flex rounded-lg border border-border p-1">
-            {(["en", "ar"] as const).map((l) => (
-              <button
-                key={l}
-                onClick={() => setLanguage(l)}
-                className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${language === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {l === "en" ? "English" : "العربية"}
-              </button>
-            ))}
-          </div>
+          <Select value={language} onValueChange={(v) => setLanguage(v as "en" | "ar")}>
+            <SelectTrigger className="w-64" aria-label={ar ? "اللغة" : "Language"}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGES.map((l) => (
+                <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </div>

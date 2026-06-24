@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useRouterState, Link } from "@tanstack/react-router";
-import { LayoutGrid, Table2, User, LogOut, Layers, ChevronDown, Sun, Moon, Languages } from "lucide-react";
+import { LayoutGrid, Table2, User, LogOut, Layers, ChevronDown, Sun, Moon } from "lucide-react";
 import {
   SidebarProvider, Sidebar, SidebarHeader, SidebarContent,
   SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
@@ -16,7 +16,7 @@ export function AppLayout() {
   const nav = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { theme, setTheme } = useTheme();
-  const { language, setLanguage } = useT();
+  const { language } = useT();
   const [me, setMe] = useState<Me | null>(null);
   const [resources, setResources] = useState<{ name: string; table: string }[]>([]);
   const [live, setLive] = useState(false);
@@ -82,12 +82,11 @@ export function AppLayout() {
                 <span className="max-w-[160px] truncate text-sm">{me?.email ?? "…"}</span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" dir={ar ? "rtl" : "ltr"} className="w-56">
                 <div className="truncate px-2 py-1.5 text-xs text-muted-foreground">{me?.email ?? ""}</div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => go("/profile")}><User className="me-2 h-4 w-4" />{ar ? "الملف الشخصي" : "Profile"}</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>{isDark ? <Sun className="me-2 h-4 w-4" /> : <Moon className="me-2 h-4 w-4" />}{isDark ? (ar ? "الوضع الفاتح" : "Light mode") : (ar ? "الوضع الداكن" : "Dark mode")}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLanguage(ar ? "en" : "ar")}><Languages className="me-2 h-4 w-4" />{ar ? "English" : "العربية"}</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onClick={async () => { await auth.logout(); clearSession(); go("/login"); }}><LogOut className="me-2 h-4 w-4" />{ar ? "تسجيل الخروج" : "Sign out"}</DropdownMenuItem>
               </DropdownMenuContent>

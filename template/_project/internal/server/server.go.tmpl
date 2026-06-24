@@ -81,6 +81,7 @@ func resourcesJSON() []byte {
 	var out []res
 	var cur res
 	have := false
+	resourceIndent := -1
 	flush := func() {
 		if have {
 			out = append(out, cur)
@@ -94,12 +95,22 @@ func resourcesJSON() []byte {
 		switch {
 		case t == "" || strings.HasPrefix(t, "#"):
 			// skip
-		case strings.HasPrefix(t, "- name:") && indent <= 3:
-			flush()
-			cur = res{Name: strings.TrimSpace(strings.TrimPrefix(t, "- name:"))}
-			have = true
-		case strings.HasPrefix(t, "- name:") && have:
-			cur.Fields = append(cur.Fields, field{Name: strings.TrimSpace(strings.TrimPrefix(t, "- name:")), Type: "string"})
+		case strings.HasPrefix(t, "- name:"):
+			// The first list item sets the resource-level indent; items at that
+			// indent are resources, deeper ones are fields. yaml.v3's absolute
+			// indentation varies, so don't hard-code a threshold (the old `<= 3`
+			// mis-parsed fields → empty create forms).
+			if resourceIndent < 0 {
+				resourceIndent = indent
+			}
+			name := strings.TrimSpace(strings.TrimPrefix(t, "- name:"))
+			if indent <= resourceIndent {
+				flush()
+				cur = res{Name: name}
+				have = true
+			} else if have {
+				cur.Fields = append(cur.Fields, field{Name: name, Type: "string"})
+			}
 		case strings.HasPrefix(t, "table:") && have:
 			cur.Table = strings.TrimSpace(strings.TrimPrefix(t, "table:"))
 		case strings.HasPrefix(t, "go:") && len(cur.Fields) > 0:
