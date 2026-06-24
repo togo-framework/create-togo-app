@@ -60,35 +60,55 @@ func Boot() *app.App {
 }
 
 // resourcesJSON returns the resource list from togo.resources.yaml as
-// {"resources":[{"name","table"}]} for the admin dashboard.
+// {"resources":[{"name","table","fields":[{"name","type","nullable"}]}]} for the
+// admin dashboard — fields let the admin build create/edit forms from the resource
+// definition (so forms work on an empty table, not just by inferring from rows).
 func resourcesJSON() []byte {
 	data, err := os.ReadFile("togo.resources.yaml")
 	if err != nil {
 		return []byte(`{"resources":[]}`)
 	}
+	type field struct {
+		Name     string `json:"name"`
+		Type     string `json:"type"`
+		Nullable bool   `json:"nullable"`
+	}
 	type res struct {
-		Name  string `json:"name"`
-		Table string `json:"table"`
+		Name   string  `json:"name"`
+		Table  string  `json:"table"`
+		Fields []field `json:"fields"`
 	}
 	var out []res
 	var cur res
-	for _, ln := range strings.Split(string(data), "\n") {
-		t := strings.TrimSpace(ln)
-		switch {
-		case strings.HasPrefix(t, "- name:"):
-			if cur.Table != "" {
-				out = append(out, cur)
-			}
-			cur = res{Name: strings.TrimSpace(strings.TrimPrefix(t, "- name:"))}
-		case strings.HasPrefix(t, "name:"):
-			cur.Name = strings.TrimSpace(strings.TrimPrefix(t, "name:"))
-		case strings.HasPrefix(t, "table:"):
-			cur.Table = strings.TrimSpace(strings.TrimPrefix(t, "table:"))
+	have := false
+	flush := func() {
+		if have {
+			out = append(out, cur)
 		}
 	}
-	if cur.Table != "" {
-		out = append(out, cur)
+	// Indentation distinguishes a resource item (`  - name:`) from a field item
+	// (`      - name:`); fields carry go-type + nullability for the form.
+	for _, ln := range strings.Split(string(data), "\n") {
+		indent := len(ln) - len(strings.TrimLeft(ln, " "))
+		t := strings.TrimSpace(ln)
+		switch {
+		case t == "" || strings.HasPrefix(t, "#"):
+			// skip
+		case strings.HasPrefix(t, "- name:") && indent <= 3:
+			flush()
+			cur = res{Name: strings.TrimSpace(strings.TrimPrefix(t, "- name:"))}
+			have = true
+		case strings.HasPrefix(t, "- name:") && have:
+			cur.Fields = append(cur.Fields, field{Name: strings.TrimSpace(strings.TrimPrefix(t, "- name:")), Type: "string"})
+		case strings.HasPrefix(t, "table:") && have:
+			cur.Table = strings.TrimSpace(strings.TrimPrefix(t, "table:"))
+		case strings.HasPrefix(t, "go:") && len(cur.Fields) > 0:
+			cur.Fields[len(cur.Fields)-1].Type = strings.TrimSpace(strings.TrimPrefix(t, "go:"))
+		case strings.HasPrefix(t, "null:") && len(cur.Fields) > 0:
+			cur.Fields[len(cur.Fields)-1].Nullable = strings.TrimSpace(strings.TrimPrefix(t, "null:")) == "true"
+		}
 	}
+	flush()
 	b, _ := json.Marshal(map[string]any{"resources": out})
 	return b
 }

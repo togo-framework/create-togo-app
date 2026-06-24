@@ -31,11 +31,35 @@ export const adminCreate = (t: string, data: Record<string, unknown>) => write("
 export const adminUpdate = (t: string, id: string, data: Record<string, unknown>) => write("PUT", `/api/${t}/${id}`, data);
 export const adminDelete = (t: string, id: string) => write("DELETE", `/api/${t}/${id}`);
 
-export async function metaResources(): Promise<{ name: string; table: string }[]> {
+export interface ResourceField { name: string; type: string; nullable: boolean }
+export interface ResourceMeta { name: string; table: string; fields?: ResourceField[] }
+
+export async function metaResources(): Promise<ResourceMeta[]> {
   const r = await fetch(`${API}/api/_meta/resources`, { credentials: "include" }).catch(() => null);
   if (!r || !r.ok) return [];
   return (await r.json().catch(() => ({ resources: [] }))).resources ?? [];
 }
+
+const SKIP = ["id", "created_at", "updated_at"];
+
+/** Editable fields for a resource, sourced from the resource DEFINITION (so create
+ * forms work on an empty table). Falls back to inferring from a sample row. */
+export async function resourceFields(table: string, sampleRow?: Record<string, unknown>): Promise<ResourceField[]> {
+  const meta = (await metaResources()).find((m) => m.table === table || m.name === table);
+  if (meta?.fields?.length) return meta.fields.filter((f) => !SKIP.includes(f.name));
+  if (sampleRow) return editableColumns(sampleRow).map((name) => ({ name, type: "string", nullable: true }));
+  return [];
+}
+
 export function editableColumns(row: Record<string, unknown>): string[] {
-  return Object.keys(row).filter((k) => !["id", "created_at", "updated_at"].includes(k));
+  return Object.keys(row).filter((k) => !SKIP.includes(k));
+}
+
+/** Map a resource field's go-type to an HTML input type. */
+export function inputType(field: ResourceField): string {
+  const t = field.type.toLowerCase();
+  if (/int|float|decimal|number/.test(t)) return "number";
+  if (/time|date/.test(t)) return "datetime-local";
+  if (/bool/.test(t)) return "checkbox";
+  return "text";
 }
