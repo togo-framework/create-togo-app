@@ -24,16 +24,19 @@ services:
 volumes:
   pgdata:
 {{- else if eq .DB "togo-postgres" -}}
-# togo-postgres — the batteries-included database.
-# Image: ghcr.io/togo-framework/db (built from github.com/togo-framework/db) — ParadeDB
-# (pg_search + pgvector + pg_analytics/duckdb) WITH pg_cron + pg_partman baked in; the
-# extensions are enabled on first init. NATS JetStream is the MQ. River (jobs) + Atlas
-# (migrations) are in-app Go libraries. GoTrue (auth) + Storage are optional services below.
+# togo-postgres — batteries-included Postgres (pg_duckdb, pg_search/BM25, pgvector,
+# pg_cron, pg_partman) + Supabase-role compat. NATS JetStream is the MQ.
+# Image: ghcr.io/togo-framework/db (github.com/togo-framework/db)
 services:
   postgres:
     image: ghcr.io/togo-framework/db:latest
     container_name: {{.App}}-pg
-    command: ["postgres", "-c", "shared_preload_libraries=pg_cron", "-c", "cron.database_name={{.App}}"]
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_cron,pg_duckdb,pg_search
+      - -c
+      - cron.database_name={{.App}}
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -56,17 +59,50 @@ services:
       - "4222:4222"
       - "8222:8222"
 
-  # gotrue:               # Supabase Auth (uncomment + set JWT_SECRET, DB_* to enable)
-  #   image: supabase/gotrue:v2.151.0
-  #   depends_on: [postgres]
-  #   ports: ["9999:9999"]
-  # storage:              # Supabase Storage (object storage over Postgres)
-  #   image: supabase/storage-api:v1.11.6
-  #   depends_on: [postgres]
-  #   ports: ["5000:5000"]
+  gotrue:
+    image: supabase/gotrue:v2.151.0
+    container_name: {{.App}}-gotrue
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9999:9999"
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: "9999"
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: "postgres://supabase_auth_admin:postgres@postgres:5432/{{.App}}?search_path=auth"
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_JWT_SECRET: "super-secret-jwt-token-replace-in-production"
+      GOTRUE_JWT_EXP: "3600"
+      API_EXTERNAL_URL: http://localhost:9999
+
+  storage:
+    image: supabase/storage-api:v1.11.6
+    container_name: {{.App}}-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      ANON_KEY: "your-anon-key"
+      SERVICE_KEY: "your-service-key"
+      POSTGREST_URL: http://localhost:3000
+      PGRST_JWT_SECRET: "super-secret-jwt-token-replace-in-production"
+      DATABASE_URL: "postgres://supabase_storage_admin:postgres@postgres:5432/{{.App}}"
+      FILE_SIZE_LIMIT: "52428800"
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: local
+      GLOBAL_S3_BUCKET: stub
+    volumes:
+      - storagedata:/var/lib/storage
 
 volumes:
   pgdata:
+  storagedata:
 {{- else if eq .DB "supabase" -}}
 # Supabase local stack. This compose runs the database; for the FULL managed stack
 # (GoTrue + Storage + Studio + Realtime + Kong) install the Supabase CLI and run
