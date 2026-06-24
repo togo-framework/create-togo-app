@@ -1,12 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Pencil, Trash2, Eye } from "lucide-react";
+import { Pencil, Trash2, Eye, Plus } from "lucide-react";
 import {
-  PageHeader, Button, Input, Textarea, Switch, Label, DataTable,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, useT,
+  PageHeader, Button, Badge, DataTable,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+  useT,
 } from "@togo-framework/ui";
-import { adminList, adminCreate, adminUpdate, adminDelete, resourceFields, inputType, type ResourceField } from "../lib/admin";
+import {
+  adminList, adminCreate, adminUpdate, adminDelete, resourceFields,
+  controlFor, formatValue, type ResourceField,
+} from "../lib/admin";
+import { ResourceForm, validateForm } from "../components/admin/ResourceForm";
+import { Infolist } from "../components/admin/Infolist";
+import { useToast } from "../components/admin/toast";
 import { API } from "../lib/api";
 
 type Row = Record<string, any>;
@@ -17,23 +25,21 @@ const labelOf = (name: string) => name.replace(/_/g, " ").replace(/\b\w/g, (c) =
 export function AdminResource() {
   const { resource } = useParams({ strict: false }) as { resource: string };
   const { language } = useT();
+  const { toast } = useToast();
   const ar = language === "ar";
   const dir = ar ? "rtl" : "ltr";
   const single = resource.replace(/s$/, "");
-  const modeLabel = (m?: Mode) => (m === "edit" ? (ar ? "تعديل" : "Edit") : (ar ? "إضافة" : "Create"));
   const [rows, setRows] = useState<Row[] | null>(null);
   const [fields, setFields] = useState<ResourceField[]>([]);
   const [err, setErr] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [modal, setModal] = useState<{ mode: Mode; row?: Row } | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
-  async function refresh() {
-    setRows(await adminList(resource));
-  }
+  async function refresh() { setRows(await adminList(resource).catch(() => [])); }
   useEffect(() => {
     setRows(null);
-    // Fields come from the resource DEFINITION (meta) — so the create form is complete
-    // even on an empty table, and each input renders for its declared type.
     resourceFields(resource).then(setFields);
     refresh();
     const es = new EventSource(`${API}/events`);
@@ -45,125 +51,159 @@ export function AdminResource() {
   function open(mode: Mode, row?: Row) {
     const init: Record<string, string> = {};
     fields.forEach((f) => (init[f.name] = row ? String(row[f.name] ?? "") : ""));
-    setForm(init); setErr(""); setModal({ mode, row });
+    setForm(init); setErr(""); setErrors({}); setModal({ mode, row });
   }
 
   async function save() {
     setErr("");
-    // Coerce each value to its field type; only send required fields when empty.
+    const { errors: errs, ok } = validateForm(fields, form);
+    setErrors(errs);
+    if (!ok) return;
+    setSaving(true);
     const payload: Record<string, unknown> = {};
     for (const f of fields) {
       const v = form[f.name] ?? "";
-      const t = f.type.toLowerCase();
-      if (v === "") { if (!f.nullable) payload[f.name] = ""; continue; }
-      payload[f.name] = /int|float|decimal|number/.test(t) ? Number(v) : /bool/.test(t) ? v === "true" : v;
+      const c = controlFor(f);
+      if (v === "") { if (!f.nullable && c !== "switch") payload[f.name] = ""; continue; }
+      payload[f.name] = c === "number" || c === "relation" ? Number(v) : c === "switch" ? v === "true" : c === "json" ? safeJson(v) : v;
     }
     try {
-      if (modal?.mode === "edit") await adminUpdate(resource, modal.row!.id, payload);
-      else await adminCreate(resource, payload);
+      if (modal?.mode === "edit") { await adminUpdate(resource, modal.row!.id, payload); toast(ar ? "تم التحديث" : "Updated"); }
+      else { await adminCreate(resource, payload); toast(ar ? "تم الإنشاء" : "Created"); }
       setModal(null); await refresh();
-    } catch (e: any) { setErr(e.message); }
-  }
-  async function del() {
-    setErr("");
-    try { await adminDelete(resource, modal!.row!.id); setModal(null); await refresh(); }
-    catch (e: any) { setErr(e.message); }
+    } catch (e: any) { setErr(e.message); toast(e.message, "error"); }
+    finally { setSaving(false); }
   }
 
-  const columns: ColumnDef<Row>[] = [
-    { accessorKey: "id", header: "id" },
-    ...fields.map((f) => ({ accessorKey: f.name, header: labelOf(f.name) }) as ColumnDef<Row>),
+  async function del(ids?: string[]) {
+    setErr("");
+    try {
+      const targets = ids ?? (modal?.row ? [String(modal.row.id)] : []);
+      await Promise.all(targets.map((id) => adminDelete(resource, id)));
+      setModal(null); toast(ar ? `تم حذف ${targets.length}` : `Deleted ${targets.length}`); await refresh();
+    } catch (e: any) { setErr(e.message); toast(e.message, "error"); }
+  }
+
+  const columns: ColumnDef<Row>[] = useMemo(() => [
+    { accessorKey: "id", header: "id", cell: ({ getValue }) => <span className="text-muted-foreground">#{String(getValue())}</span> },
+    ...fields.map((f) => ({
+      accessorKey: f.name,
+      header: labelOf(f.name),
+      cell: ({ getValue }: any) => <Cell f={f} v={getValue()} language={language} />,
+    }) as ColumnDef<Row>),
     {
       id: "actions",
       header: () => <span className="block text-end">{ar ? "إجراءات" : "Actions"}</span>,
-      enableSorting: false,
+      enableSorting: false, enableHiding: false,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          <Button size="sm" variant="ghost" onClick={() => open("view", row.original)}><Eye className="h-3.5 w-3.5" /></Button>
-          <Button size="sm" variant="ghost" onClick={() => open("edit", row.original)}><Pencil className="h-3.5 w-3.5" /></Button>
-          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setModal({ mode: "delete", row: row.original })}><Trash2 className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" aria-label="view" onClick={(e) => { e.stopPropagation(); open("view", row.original); }}><Eye className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" aria-label="edit" onClick={(e) => { e.stopPropagation(); open("edit", row.original); }}><Pencil className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" aria-label="delete" className="text-destructive" onClick={(e) => { e.stopPropagation(); setModal({ mode: "delete", row: row.original }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
         </div>
       ),
     },
-  ];
+  ], [fields, language, ar]);
 
-  // Filament-style schema field: the component is chosen from the field's declared type.
-  function FieldInput({ f }: { f: ResourceField }) {
-    const t = f.type.toLowerCase();
-    const val = form[f.name] ?? "";
-    const set = (v: string) => setForm((s) => ({ ...s, [f.name]: v }));
-    const lbl = (
-      <Label htmlFor={f.name}>{labelOf(f.name)}{!f.nullable && <span className="text-destructive"> *</span>}</Label>
-    );
-    if (/bool/.test(t)) {
-      return (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
-          {lbl}
-          <Switch checked={val === "true"} onCheckedChange={(c: boolean) => set(c ? "true" : "false")} />
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-1.5">
-        {lbl}
-        {t === "text" ? (
-          <Textarea id={f.name} rows={4} required={!f.nullable} value={val} onChange={(e) => set(e.target.value)} />
-        ) : (
-          <Input id={f.name} type={inputType(f)} required={!f.nullable} value={val} onChange={(e) => set(e.target.value)} />
-        )}
-      </div>
-    );
-  }
+  // Per-column select filters for enum + boolean fields (Filament-style table filters).
+  const filterDefs = useMemo(() =>
+    fields.filter((f) => f.enum?.length || /bool/.test(f.type.toLowerCase())).map((f) => ({
+      columnId: f.name,
+      type: "select" as const,
+      options: (f.enum?.length ? f.enum : ["true", "false"]).map((v) => ({ value: v, label_en: v, label_ar: v })),
+      placeholder_en: labelOf(f.name), placeholder_ar: labelOf(f.name),
+    })), [fields]);
+
+  const bulkActions = useMemo(() => [
+    { id: "export", label_en: "Export", label_ar: "تصدير", variant: "outline" as const, onAction: (ids: string[]) => exportRows((rows ?? []).filter((r) => ids.includes(String(r.id))), resource) },
+    { id: "delete", label_en: "Delete", label_ar: "حذف", variant: "destructive" as const, onAction: (ids: string[]) => del(ids) },
+  ], [rows, resource, ar]);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" dir={dir}>
       <PageHeader title={labelOf(resource)} description={`${rows?.length ?? 0} ${ar ? "سجل" : "records"}`}
-        actions={<Button onClick={() => open("create")}>+ {ar ? "إضافة" : "Create"}</Button>} />
+        actions={<Button onClick={() => open("create")}><Plus className="me-1.5 h-4 w-4" />{ar ? "إضافة" : "Create"}</Button>} />
       {err && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
 
       <DataTable
         columns={columns}
         data={rows ?? []}
         getRowId={(r) => String((r as Row).id)}
+        loading={rows === null}
         showGlobalSearch
         showCsvExport
+        csvFilename={resource}
+        enableRowSelection
+        bulkActions={bulkActions}
+        filterDefs={filterDefs}
+        onRowClick={(r) => open("view", r as Row)}
         language={language}
       />
 
-      {/* Create / edit — a dynamic schema form: each field renders for its declared type. */}
+      {/* Create / edit — schema form with validation + relation pickers. */}
       <Dialog open={modal?.mode === "create" || modal?.mode === "edit"} onOpenChange={(o) => !o && setModal(null)}>
-        <DialogContent dir={dir}>
-          <DialogHeader><DialogTitle className="capitalize">{modeLabel(modal?.mode)} {single}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            {fields.map((f) => <FieldInput key={f.name} f={f} />)}
+        <DialogContent dir={dir} className="sm:max-w-2xl">
+          <DialogHeader><DialogTitle className="capitalize">{modal?.mode === "edit" ? (ar ? "تعديل" : "Edit") : (ar ? "إضافة" : "Create")} {single}</DialogTitle></DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto px-0.5 py-1">
+            <ResourceForm fields={fields} value={form} errors={errors} onChange={setForm} language={language} />
           </div>
-          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إلغاء" : "Cancel"}</Button><Button onClick={save}>{ar ? "حفظ" : "Save"}</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={save} disabled={saving}>{saving ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ" : "Save")}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* View — a Filament-style infolist: labelled key/value rows. */}
+      {/* View — infolist. */}
       <Dialog open={modal?.mode === "view"} onOpenChange={(o) => !o && setModal(null)}>
-        <DialogContent dir={dir}>
+        <DialogContent dir={dir} className="sm:max-w-xl">
           <DialogHeader><DialogTitle className="capitalize">{single}</DialogTitle></DialogHeader>
-          <dl className="divide-y divide-border/60 rounded-lg border border-border text-sm">
-            {modal?.row && Object.entries(modal.row).map(([k, v]) => (
-              <div key={k} className="flex gap-3 px-3 py-2">
-                <dt className="w-36 shrink-0 text-muted-foreground">{labelOf(k)}</dt>
-                <dd className="break-all font-medium">{v === null || v === "" ? <span className="text-muted-foreground/60">—</span> : String(v)}</dd>
-              </div>
-            ))}
-          </dl>
-          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إغلاق" : "Close"}</Button><Button onClick={() => modal?.row && open("edit", modal.row)}>{ar ? "تعديل" : "Edit"}</Button></DialogFooter>
+          {modal?.row && <Infolist row={modal.row} fields={fields} language={language} />}
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إغلاق" : "Close"}</Button>
+            <Button onClick={() => modal?.row && open("edit", modal.row)}>{ar ? "تعديل" : "Edit"}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={modal?.mode === "delete"} onOpenChange={(o) => !o && setModal(null)}>
-        <DialogContent dir={dir}>
-          <DialogHeader><DialogTitle>{ar ? "حذف السجل" : "Delete record"}</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">{ar ? "لا يمكن التراجع عن هذا الإجراء. حذف هذا السجل؟" : "This action cannot be undone. Delete this record?"}</p>
-          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إلغاء" : "Cancel"}</Button><Button variant="destructive" onClick={del}>{ar ? "حذف" : "Delete"}</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete confirmation. */}
+      <AlertDialog open={modal?.mode === "delete"} onOpenChange={(o) => !o && setModal(null)}>
+        <AlertDialogContent dir={dir}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{ar ? "حذف السجل" : "Delete record"}</AlertDialogTitle>
+            <AlertDialogDescription>{ar ? "لا يمكن التراجع عن هذا الإجراء. حذف هذا السجل؟" : "This action cannot be undone. Delete this record?"}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{ar ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => del()}>{ar ? "حذف" : "Delete"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+}
+
+function Cell({ f, v, language }: { f: ResourceField; v: any; language: string }) {
+  const c = controlFor(f);
+  if (v === null || v === undefined || v === "") return <span className="text-muted-foreground/50">—</span>;
+  if (c === "switch" || typeof v === "boolean") {
+    const on = v === true || v === "true";
+    return <Badge variant={on ? "default" : "secondary"}>{on ? "Yes" : "No"}</Badge>;
+  }
+  if (c === "select") return <Badge variant="secondary" className="capitalize">{String(v)}</Badge>;
+  if (c === "relation") return <Badge variant="outline">#{String(v)}</Badge>;
+  const text = formatValue(f, v, language);
+  return <span className="line-clamp-1 max-w-[28ch]">{text}</span>;
+}
+
+function safeJson(s: string): unknown { try { return JSON.parse(s); } catch { return s; } }
+
+/** Export selected rows as a CSV download (bulk action). */
+function exportRows(rows: Record<string, any>[], name: string) {
+  if (!rows.length) return;
+  const cols = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+  const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const a = document.createElement("a"); a.href = url; a.download = `${name}-selected.csv`; a.click(); URL.revokeObjectURL(url);
 }

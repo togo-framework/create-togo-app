@@ -31,8 +31,67 @@ export const adminCreate = (t: string, data: Record<string, unknown>) => write("
 export const adminUpdate = (t: string, id: string, data: Record<string, unknown>) => write("PUT", `/api/${t}/${id}`, data);
 export const adminDelete = (t: string, id: string) => write("DELETE", `/api/${t}/${id}`);
 
-export interface ResourceField { name: string; type: string; nullable: boolean }
+export interface ResourceField { name: string; type: string; nullable: boolean; enum?: string[]; relation?: string }
 export interface ResourceMeta { name: string; table: string; fields?: ResourceField[] }
+
+/** The form control a field renders with — Filament-style, derived from the schema. */
+export type Control = "switch" | "number" | "datetime" | "date" | "textarea" | "email" | "select" | "relation" | "json" | "text";
+
+/** Pluralize a singular relation/base name to its REST table (best-effort, matches togo's table naming). */
+export function pluralize(s: string): string {
+  if (/[^aeiou]y$/.test(s)) return s.replace(/y$/, "ies");
+  if (/(s|x|z|ch|sh)$/.test(s)) return s + "es";
+  return s + "s";
+}
+
+/** The related table for a belongs-to field: explicit `relation:` wins, else infer from a `*_id` name. */
+export function relationTable(f: ResourceField): string | null {
+  if (f.relation) return f.relation.includes("/") ? f.relation : pluralize(f.relation.replace(/s$/, ""));
+  if (/_id$/.test(f.name) && /int|uint|number/.test(f.type.toLowerCase())) return pluralize(f.name.replace(/_id$/, ""));
+  return null;
+}
+
+/** Pick the form control for a field from its declared type/name (the schema drives the UI). */
+export function controlFor(f: ResourceField): Control {
+  const t = f.type.toLowerCase();
+  if (relationTable(f)) return "relation";
+  if (f.enum && f.enum.length) return "select";
+  if (/bool/.test(t)) return "switch";
+  if (/json|jsonb|map|\[\]/.test(t)) return "json";
+  if (/time|date/.test(t)) return /^date$/.test(t) || /\bdate\b/.test(f.name) ? "date" : "datetime";
+  if (/int|float|decimal|number|uint/.test(t)) return "number";
+  if (/email/.test(f.name)) return "email";
+  if (t === "text" || /body|content|description|bio|notes?|message/.test(f.name)) return "textarea";
+  return "text";
+}
+
+/** A human label for a row: prefer a name/title/email field, else #id. */
+export function rowLabel(row: Record<string, any>): string {
+  for (const k of ["name", "title", "label", "email", "slug"]) if (row?.[k]) return String(row[k]);
+  return row?.id != null ? `#${row.id}` : "—";
+}
+
+/** Format a value for a table cell / infolist, given its field type. */
+export function formatValue(f: ResourceField | undefined, v: any, language = "en"): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const t = (f?.type ?? "").toLowerCase();
+  if (/time|date/.test(t) || /_at$/.test(f?.name ?? "")) {
+    const d = new Date(v); if (!isNaN(d.getTime())) return d.toLocaleString(language === "ar" ? "ar" : "en", { dateStyle: "medium", timeStyle: "short" });
+  }
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+/** Required + format validation derived from the schema. Returns an error key or "". */
+export function validateField(f: ResourceField, raw: string): string {
+  const v = (raw ?? "").trim();
+  if (!f.nullable && v === "" && controlFor(f) !== "switch") return "required";
+  if (v === "") return "";
+  const c = controlFor(f);
+  if (c === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return "email";
+  if (c === "number" && isNaN(Number(v))) return "number";
+  return "";
+}
 
 export async function metaResources(): Promise<ResourceMeta[]> {
   const r = await fetch(`${API}/api/_meta/resources`, { credentials: "include" }).catch(() => null);

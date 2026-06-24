@@ -69,9 +69,11 @@ func resourcesJSON() []byte {
 		return []byte(`{"resources":[]}`)
 	}
 	type field struct {
-		Name     string `json:"name"`
-		Type     string `json:"type"`
-		Nullable bool   `json:"nullable"`
+		Name     string   `json:"name"`
+		Type     string   `json:"type"`
+		Nullable bool     `json:"nullable"`
+		Enum     []string `json:"enum,omitempty"`     // select options, if the field declares `enum:`
+		Relation string   `json:"relation,omitempty"` // related table for a belongs-to, if `relation:`/`rel:`
 	}
 	type res struct {
 		Name   string  `json:"name"`
@@ -117,6 +119,20 @@ func resourcesJSON() []byte {
 			cur.Fields[len(cur.Fields)-1].Type = strings.TrimSpace(strings.TrimPrefix(t, "go:"))
 		case strings.HasPrefix(t, "null:") && len(cur.Fields) > 0:
 			cur.Fields[len(cur.Fields)-1].Nullable = strings.TrimSpace(strings.TrimPrefix(t, "null:")) == "true"
+		case (strings.HasPrefix(t, "enum:")) && len(cur.Fields) > 0:
+			// `enum: [draft, published]` or `enum: draft,published` → select options.
+			raw := strings.TrimSpace(strings.TrimPrefix(t, "enum:"))
+			raw = strings.Trim(raw, "[]")
+			var vals []string
+			for _, v := range strings.Split(raw, ",") {
+				if v = strings.TrimSpace(strings.Trim(v, `"'`)); v != "" {
+					vals = append(vals, v)
+				}
+			}
+			cur.Fields[len(cur.Fields)-1].Enum = vals
+		case (strings.HasPrefix(t, "relation:") || strings.HasPrefix(t, "rel:")) && len(cur.Fields) > 0:
+			v := strings.TrimPrefix(strings.TrimPrefix(t, "relation:"), "rel:")
+			cur.Fields[len(cur.Fields)-1].Relation = strings.TrimSpace(v)
 		}
 	}
 	flush()
