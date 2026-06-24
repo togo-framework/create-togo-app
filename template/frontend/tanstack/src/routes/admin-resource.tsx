@@ -3,7 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Pencil, Trash2, Eye } from "lucide-react";
 import {
-  PageHeader, Button, Input, Label, DataTable,
+  PageHeader, Button, Input, Textarea, Switch, Label, DataTable,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, useT,
 } from "@togo-framework/ui";
 import { adminList, adminCreate, adminUpdate, adminDelete, resourceFields, inputType, type ResourceField } from "../lib/admin";
@@ -11,6 +11,8 @@ import { API } from "../lib/api";
 
 type Row = Record<string, any>;
 type Mode = "create" | "edit" | "view" | "delete";
+
+const labelOf = (name: string) => name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 export function AdminResource() {
   const { resource } = useParams({ strict: false }) as { resource: string };
@@ -31,8 +33,7 @@ export function AdminResource() {
   useEffect(() => {
     setRows(null);
     // Fields come from the resource DEFINITION (meta) — so the create form is complete
-    // even on an empty table (the old code inferred fields from existing rows → only
-    // "title" showed, and create failed validation for the other required fields).
+    // even on an empty table, and each input renders for its declared type.
     resourceFields(resource).then(setFields);
     refresh();
     const es = new EventSource(`${API}/events`);
@@ -71,7 +72,7 @@ export function AdminResource() {
 
   const columns: ColumnDef<Row>[] = [
     { accessorKey: "id", header: "id" },
-    ...fields.map((f) => ({ accessorKey: f.name, header: f.name }) as ColumnDef<Row>),
+    ...fields.map((f) => ({ accessorKey: f.name, header: labelOf(f.name) }) as ColumnDef<Row>),
     {
       id: "actions",
       header: () => <span className="block text-end">{ar ? "إجراءات" : "Actions"}</span>,
@@ -86,9 +87,37 @@ export function AdminResource() {
     },
   ];
 
+  // Filament-style schema field: the component is chosen from the field's declared type.
+  function FieldInput({ f }: { f: ResourceField }) {
+    const t = f.type.toLowerCase();
+    const val = form[f.name] ?? "";
+    const set = (v: string) => setForm((s) => ({ ...s, [f.name]: v }));
+    const lbl = (
+      <Label htmlFor={f.name}>{labelOf(f.name)}{!f.nullable && <span className="text-destructive"> *</span>}</Label>
+    );
+    if (/bool/.test(t)) {
+      return (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+          {lbl}
+          <Switch checked={val === "true"} onCheckedChange={(c: boolean) => set(c ? "true" : "false")} />
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-1.5">
+        {lbl}
+        {t === "text" ? (
+          <Textarea id={f.name} rows={4} required={!f.nullable} value={val} onChange={(e) => set(e.target.value)} />
+        ) : (
+          <Input id={f.name} type={inputType(f)} required={!f.nullable} value={val} onChange={(e) => set(e.target.value)} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-6">
-      <PageHeader title={resource} description={`${rows?.length ?? 0} ${ar ? "سجل" : "records"}`}
+      <PageHeader title={labelOf(resource)} description={`${rows?.length ?? 0} ${ar ? "سجل" : "records"}`}
         actions={<Button onClick={() => open("create")}>+ {ar ? "إضافة" : "Create"}</Button>} />
       {err && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
 
@@ -101,31 +130,30 @@ export function AdminResource() {
         language={language}
       />
 
-      {/* Create / edit — form built from the resource fields. */}
+      {/* Create / edit — a dynamic schema form: each field renders for its declared type. */}
       <Dialog open={modal?.mode === "create" || modal?.mode === "edit"} onOpenChange={(o) => !o && setModal(null)}>
         <DialogContent dir={dir}>
           <DialogHeader><DialogTitle className="capitalize">{modeLabel(modal?.mode)} {single}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            {fields.map((f) => (
-              <div key={f.name} className="space-y-1.5">
-                <Label htmlFor={f.name}>{f.name}{!f.nullable && <span className="text-destructive"> *</span>}</Label>
-                <Input id={f.name} type={inputType(f)} required={!f.nullable}
-                  value={form[f.name] ?? ""} onChange={(e) => setForm({ ...form, [f.name]: e.target.value })} />
-              </div>
-            ))}
+            {fields.map((f) => <FieldInput key={f.name} f={f} />)}
           </div>
           <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إلغاء" : "Cancel"}</Button><Button onClick={save}>{ar ? "حفظ" : "Save"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* View — a Filament-style infolist: labelled key/value rows. */}
       <Dialog open={modal?.mode === "view"} onOpenChange={(o) => !o && setModal(null)}>
         <DialogContent dir={dir}>
           <DialogHeader><DialogTitle className="capitalize">{single}</DialogTitle></DialogHeader>
-          <dl className="space-y-2 text-sm">
+          <dl className="divide-y divide-border/60 rounded-lg border border-border text-sm">
             {modal?.row && Object.entries(modal.row).map(([k, v]) => (
-              <div key={k} className="flex gap-3 border-b border-border/60 py-1.5"><dt className="w-32 shrink-0 text-muted-foreground">{k}</dt><dd className="break-all">{String(v ?? "")}</dd></div>
+              <div key={k} className="flex gap-3 px-3 py-2">
+                <dt className="w-36 shrink-0 text-muted-foreground">{labelOf(k)}</dt>
+                <dd className="break-all font-medium">{v === null || v === "" ? <span className="text-muted-foreground/60">—</span> : String(v)}</dd>
+              </div>
             ))}
           </dl>
+          <DialogFooter><Button variant="secondary" onClick={() => setModal(null)}>{ar ? "إغلاق" : "Close"}</Button><Button onClick={() => modal?.row && open("edit", modal.row)}>{ar ? "تعديل" : "Edit"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
