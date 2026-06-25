@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from "@tanstack/react-router";
 import { SentraLoading } from "@togo-framework/ui";
 import { Providers } from "./providers";
 import { sessionMe } from "./lib/auth";
@@ -7,10 +7,15 @@ import { Login } from "./routes/login";
 import { Register } from "./routes/register";
 import { Reset } from "./routes/reset";
 import { AppLayout } from "./routes/app-layout";
-import { Dashboard } from "./routes/dashboard";
-import { AdminHome } from "./routes/admin";
-import { AdminResource } from "./routes/admin-resource";
-import { Profile } from "./routes/profile";
+
+// The authenticated admin surface (dashboard charts/widgets/ThemePicker, the
+// resource tables/forms/infolists) is the heavy part of the bundle — lazy-load it
+// so it splits into its own chunk and the public/auth first paint stays small.
+// The router's pending component (SentraLoading) shows while the chunk loads.
+const Dashboard = lazyRouteComponent(() => import("./routes/dashboard"), "Dashboard");
+const AdminHome = lazyRouteComponent(() => import("./routes/admin"), "AdminHome");
+const AdminResource = lazyRouteComponent(() => import("./routes/admin-resource"), "AdminResource");
+const Profile = lazyRouteComponent(() => import("./routes/profile"), "Profile");
 
 const rootRoute = createRootRoute({ component: () => (<Providers><Outlet /></Providers>) });
 
