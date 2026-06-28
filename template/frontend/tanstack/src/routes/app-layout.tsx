@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useRouterState, Link } from "@tanstack/react-router";
-import { LayoutGrid, Table2, User, LogOut, Layers, ChevronDown } from "lucide-react";
+import { LayoutGrid, Table2, User, LogOut, Layers, ChevronDown, Users as UsersIcon, Mail as MailIcon } from "lucide-react";
 import {
   SidebarProvider, Sidebar, SidebarHeader, SidebarContent,
   SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
   SidebarInset, SidebarTrigger, Avatar, AvatarFallback,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  StatusBadge, ThemePicker, useT,
+  StatusBadge, ThemePicker, ImpersonationBanner, useT,
 } from "@togo-framework/ui";
 import { auth, sessionMe, clearSession, type Me } from "../lib/auth";
+import { getImpersonating, setImpersonating } from "../lib/admin-users";
 import { metaResources, adminList, type ResourceMeta } from "../lib/admin";
 import { ToastProvider } from "../components/admin/toast";
 import { API, APP_NAME } from "../lib/api";
@@ -35,7 +36,15 @@ export function AppLayout() {
   const [resources, setResources] = useState<ResourceMeta[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [live, setLive] = useState(false);
+  const [imp, setImp] = useState<string | null>(getImpersonating());
   const ar = language === "ar";
+
+  useEffect(() => {
+    const on = () => setImp(getImpersonating());
+    window.addEventListener("togo-impersonation", on);
+    window.addEventListener("storage", on);
+    return () => { window.removeEventListener("togo-impersonation", on); window.removeEventListener("storage", on); };
+  }, []);
 
   useEffect(() => {
     // Auth is already guaranteed by the route's beforeLoad guard — just read the cached user.
@@ -80,6 +89,16 @@ export function AppLayout() {
                   <Table2 className="h-4 w-4" /><span>{ar_label("Admin", "الإدارة", ar)}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={pathname === "/users"} tooltip={ar_label("Users", "المستخدمون", ar)} onClick={() => go("/users")}>
+                  <UsersIcon className="h-4 w-4" /><span>{ar_label("Users", "المستخدمون", ar)}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={pathname === "/mail"} tooltip={ar_label("Mail", "البريد", ar)} onClick={() => go("/mail")}>
+                  <MailIcon className="h-4 w-4" /><span>{ar_label("Mail settings", "إعدادات البريد", ar)}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
 
@@ -112,6 +131,11 @@ export function AppLayout() {
       </Sidebar>
 
       <SidebarInset>
+        <ImpersonationBanner
+          email={imp}
+          language={language}
+          onStop={async () => { await auth.logout(); clearSession(); setImpersonating(null); window.location.assign("/login"); }}
+        />
         <header className="flex h-14 items-center justify-between gap-2 border-b border-border px-4">
           <div className="flex items-center gap-3">
             <SidebarTrigger />

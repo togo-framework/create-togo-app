@@ -15,6 +15,8 @@ import { AppLayout } from "./routes/app-layout";
 const Dashboard = lazyRouteComponent(() => import("./routes/dashboard"), "Dashboard");
 const AdminHome = lazyRouteComponent(() => import("./routes/admin"), "AdminHome");
 const AdminResource = lazyRouteComponent(() => import("./routes/admin-resource"), "AdminResource");
+const Users = lazyRouteComponent(() => import("./routes/users"), "Users");
+const Mail = lazyRouteComponent(() => import("./routes/mail"), "Mail");
 const Profile = lazyRouteComponent(() => import("./routes/profile"), "Profile");
 
 const rootRoute = createRootRoute({ component: () => (<Providers><Outlet /></Providers>) });
@@ -46,11 +48,13 @@ const appRoute = createRoute({
 const dashboardRoute = createRoute({ getParentRoute: () => appRoute, path: "/dashboard", component: Dashboard });
 const adminRoute = createRoute({ getParentRoute: () => appRoute, path: "/admin", component: AdminHome });
 const resourceRoute = createRoute({ getParentRoute: () => appRoute, path: "/admin/$resource", component: AdminResource });
+const usersRoute = createRoute({ getParentRoute: () => appRoute, path: "/users", component: Users });
+const mailRoute = createRoute({ getParentRoute: () => appRoute, path: "/mail", component: Mail });
 const profileRoute = createRoute({ getParentRoute: () => appRoute, path: "/profile", component: Profile });
 
 const routeTree = rootRoute.addChildren([
   indexRoute, loginRoute, registerRoute, resetRoute,
-  appRoute.addChildren([dashboardRoute, adminRoute, resourceRoute, profileRoute]),
+  appRoute.addChildren([dashboardRoute, adminRoute, resourceRoute, usersRoute, mailRoute, profileRoute]),
 ]);
 
 export const router = createRouter({

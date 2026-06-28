@@ -20,6 +20,7 @@ import (
 	"github.com/togo-framework/togo"
 
 	"{{.Module}}/internal/app"
+	_ "{{.Module}}/internal/admin" // mounts the built-in /api/admin user-management + mail surface
 	graphgen "{{.Module}}/internal/graph/gen"
 	"{{.Module}}/internal/graph/resolvers"
 	_ "{{.Module}}/internal/plugins" // blank-imports installed plugins (togo install)
