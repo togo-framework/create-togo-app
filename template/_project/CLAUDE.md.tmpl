@@ -1,0 +1,35 @@
+# {{.App}} — togo project
+
+A togo app (Go API + {{.Frontend}} web, one binary). Built with the togo
+microkernel + plugins. This file is loaded by Claude Code (interactive **and**
+the Autopilot runner's headless sessions) — follow it.
+
+## How work happens here: Autopilot
+
+This project ships **autopilot** — an Issues → Agent → Code → Deploy loop.
+
+- **Board:** `/autopilot` · **API:** `/api/autopilot/*` · issues live in the app DB.
+- The human files issues; the **runner** (opt-in `AUTOPILOT_RUNNER=1`) claims
+  `ready` issues, implements them here with Claude Code, and opens a PR
+  (`in_review`). Humans accept or re-run.
+- **When you (an agent) implement an issue:** make the change in the working
+  tree only — do **not** run git commit/push (the runner owns git). If you can't
+  proceed without a human decision, make no changes and reply on one line
+  `BLOCKED: <question>`.
+- To start building the core, use the **`autopilot`** skill (`.claude/skills/autopilot`).
+
+## Conventions (see `.claude/rules/conventions.md`)
+
+- **Add entities via the generator**, never by hand:
+  `togo make:resource <Name> <field:type…>` then `togo generate`.
+- Edit generated *fragment* bodies (resolvers, handlers); never the `*.gen.go`
+  registries (regenerated from `togo.resources.yaml`).
+- **REST** = Huma (`internal/rest`), **GraphQL** = gqlgen (`internal/graph`),
+  queries = sqlc (`internal/db/queries`), migrations = Atlas (`db/atlas/schema`).
+- Keep changes minimal and focused; match the surrounding code.
+
+## Run
+
+```bash
+togo generate && togo migrate && togo serve   # http://localhost:8080  (board: /autopilot)
+```
