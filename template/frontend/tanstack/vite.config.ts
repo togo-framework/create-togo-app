@@ -16,6 +16,8 @@ const proxy = {
   // and the docs page shows "Failed to parse OpenAPI file".
   "/openapi": { target: apiTarget, changeOrigin: true },
   "/schemas": { target: apiTarget, changeOrigin: true },
+  // Autopilot board + SDK (floating launcher/feedback) are served by the API.
+  "/autopilot": { target: apiTarget, changeOrigin: true },
 };
 
 export default defineConfig({
