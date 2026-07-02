@@ -7,7 +7,7 @@ const port = Number(process.env.PORT) || 3000;
 // makes auth cookies (login/session) work. Override the target with VITE_API_PROXY.
 const apiTarget = process.env.VITE_API_PROXY || "http://localhost:8080";
 const proxy = {
-  "/api": { target: apiTarget, changeOrigin: true },
+  "/api": { target: apiTarget, changeOrigin: true, ws: true },
   "/events": { target: apiTarget, changeOrigin: true },
   "/graphql": { target: apiTarget, changeOrigin: true },
   "/docs": { target: apiTarget, changeOrigin: true },
