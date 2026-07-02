@@ -21,6 +21,7 @@ import (
 
 	"{{.Module}}/internal/app"
 	_ "{{.Module}}/internal/admin" // mounts the built-in /api/admin user-management + mail surface
+	_ "github.com/togo-framework/autopilot" // ships the Autopilot board + Issues->Agent->Code loop at /autopilot
 	graphgen "{{.Module}}/internal/graph/gen"
 	"{{.Module}}/internal/graph/resolvers"
 	_ "{{.Module}}/internal/plugins" // blank-imports installed plugins (togo install)
