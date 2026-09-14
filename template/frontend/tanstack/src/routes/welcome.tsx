@@ -7,6 +7,18 @@ import { Button, useT } from "@togo-framework/ui";
 import { API, APP_NAME } from "../lib/api";
 import { sessionMe, type Me } from "../lib/auth";
 
+/** The ToGO mark (https://to-go.dev/en/brand): six cubes — body in the text colour, accent teal. */
+function ToGOMark({ className }: { className?: string }) {
+  const body = [[0, 1], [1, 0], [1, 2]];
+  const accent = [[2, 1], [2, 3], [3, 2]];
+  return (
+    <svg viewBox="0 0 100 100" role="img" aria-label="ToGO" shapeRendering="crispEdges" className={className}>
+      {body.map(([c, r]) => <rect key={`b${c}${r}`} x={8 + c * 21} y={8 + r * 21} width={21} height={21} fill="currentColor" />)}
+      {accent.map(([c, r]) => <rect key={`a${c}${r}`} x={8 + c * 21} y={8 + r * 21} width={21} height={21} fill="#1F8A99" />)}
+    </svg>
+  );
+}
+
 type Card = {
   icon: typeof Layers;
   en: string; ar: string;
@@ -42,18 +54,12 @@ export function Welcome() {
 
   return (
     <main dir={ar ? "rtl" : "ltr"} className="relative min-h-screen overflow-hidden bg-background text-foreground">
-      {/* subtle brand glow — theme-aware, decorative */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-96"
-        style={{ background: "radial-gradient(620px 320px at 50% -4%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%)" }} />
 
       <div className="mx-auto w-full max-w-4xl px-6 py-16 sm:py-20">
         {/* hero */}
         <header className="text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-lg"
-            style={{ background: "linear-gradient(135deg,#1FC7DC,#2D8CE6 55%,#1659C8)" }}>
-            <Layers className="h-8 w-8" />
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">{APP_NAME}</h1>
+          <ToGOMark className="mx-auto mb-6 h-16 w-16 text-foreground" />
+          <h1 className="text-4xl font-medium tracking-tight sm:text-5xl">{APP_NAME}</h1>
           <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground sm:text-lg">
             {tx("Built with togo — your Go API and React UI, shipped as one binary.",
                 "مبنيٌّ باستخدام togo — واجهة Go وتطبيق React في ثنائيّة واحدة.")}
