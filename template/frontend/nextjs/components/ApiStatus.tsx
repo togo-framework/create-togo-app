@@ -14,10 +14,10 @@ export function ApiStatus() {
 
   const ok = !error && data?.status === "ok";
   const label = isLoading ? "checking…" : ok ? "connected" : "unreachable";
-  const color = isLoading ? "#999" : ok ? "#22c55e" : "#ef4444";
+  const color = isLoading ? "hsl(var(--muted-foreground))" : ok ? "hsl(var(--success))" : "hsl(var(--destructive))";
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm">
+    <div className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm">
       <span
         style={{ background: color }}
         className="inline-block h-2.5 w-2.5 rounded-full"

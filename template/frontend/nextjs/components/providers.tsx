@@ -13,7 +13,7 @@ const APP = process.env.NEXT_PUBLIC_APP_NAME ?? "togo";
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <BrandingProvider primaryHex="#7c3aed" accentHex="#06b6d4" productName={APP}>
+      <BrandingProvider primaryHex="#1F8A99" accentHex="#1F8A99" productName={APP}>
         <LanguageProvider initialLanguage="en">
           {children}
           <Toaster richColors position="top-right" />

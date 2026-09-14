@@ -23,7 +23,7 @@ export function Profile() {
 
       {/* Language preference — switching it updates the whole UI immediately (LanguageProvider). */}
       <div className="mx-auto max-w-5xl px-6 pb-10">
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="border border-border bg-card p-5">
           <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Languages className="h-4 w-4" />{ar ? "اللغة" : "Language"}</div>
           <p className="mb-4 text-sm text-muted-foreground">{ar ? "تغيير لغة الواجهة — يُطبّق فورًا." : "Change the interface language — applies instantly."}</p>
           <Select value={language} onValueChange={(v) => setLanguage(v as "en" | "ar")}>

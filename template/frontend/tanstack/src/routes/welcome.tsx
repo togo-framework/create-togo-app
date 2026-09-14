@@ -85,21 +85,21 @@ export function Welcome() {
         </header>
 
         {/* resource grid — Laravel-welcome style */}
-        <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {CARDS.map((c) => {
             const inner = (
               <>
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
                     <c.icon className="h-5 w-5" />
                   </span>
-                  <span className="font-semibold">{tx(c.en, c.ar)}</span>
-                  <Arrow className="ms-auto h-4 w-4 text-muted-foreground/50 transition-all group-hover:text-primary group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
+                  <span className="font-medium">{tx(c.en, c.ar)}</span>
+                  <Arrow className="ms-auto h-4 w-4 text-muted-foreground/50 transition-colors group-hover:text-primary" />
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">{tx(c.descEn, c.descAr)}</p>
               </>
             );
-            const cls = "group block rounded-2xl border border-border bg-card p-5 text-start transition-colors hover:border-primary/40 hover:bg-accent/40";
+            const cls = "group block bg-card p-5 text-start transition-colors hover:bg-accent";
             return c.to ? (
               <Link key={c.en} to={c.to} className={cls}>{inner}</Link>
             ) : (
