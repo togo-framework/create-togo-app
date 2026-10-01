@@ -1,8 +1,9 @@
 // Admin user-management + mail API client — talks to the built-in /api/admin/*
 // surface (internal/admin in the Go app, backed by the togo auth plugin).
 // Endpoints sit behind the auth session cookie, so every call sends credentials.
+// The mail helpers translate between the backend's SMTP shape and Nasaq's SmtpSettings.
+import type { SmtpConfig, SmtpSaveInput, TestOutcome, TestStepId } from "@fadymondy/nasaq/web";
 import { API } from "./api";
-import type { AdminUser, MailConfig, MailTestResult, AdminLinkResult } from "@togo-framework/ui";
 
 export class AdminError extends Error {
   status: number;
@@ -23,6 +24,17 @@ async function req<T = any>(method: string, path: string, body?: unknown): Promi
   if (!res.ok) throw new AdminError(data.error || data.detail || `request failed (${res.status})`, res.status);
   return data as T;
 }
+
+/** A user as the backend returns it. */
+export interface AdminUser {
+  id: string | number;
+  email: string;
+  roles?: string[];
+  permissions?: string[];
+  created_at?: string;
+}
+/** Result of a reset-password / magic-link call: the link, or `emailed` when SMTP delivered it. */
+export interface AdminLinkResult { link?: string; emailed?: boolean }
 
 export interface CreateUserInput {
   email: string;
@@ -47,16 +59,67 @@ export const adminUsers = {
   magicLink: (id: string): Promise<AdminLinkResult> => req("POST", `/users/${id}/magic-link`),
 };
 
+/** The backend's SMTP config. `secure` means TLS: implicit on port 465, STARTTLS otherwise. */
+interface BackendMail { host?: string; port?: number; username?: string; password?: string; from?: string; secure?: boolean }
+const MASK = "••••••••";
+
+function toSmtp(m: BackendMail): SmtpConfig {
+  const from = m.from ?? "";
+  const named = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);
+  const port = m.port || 587;
+  return {
+    host: m.host ?? "",
+    port,
+    encryption: !m.secure ? "none" : port === 465 ? "tls" : "starttls",
+    username: m.username ?? "",
+    fromName: named ? named[1].replace(/^"|"$/g, "") : "",
+    fromAddress: named ? named[2] : from,
+    passwordSet: !!m.password,
+  };
+}
+
+function fromSmtp(s: SmtpSaveInput): BackendMail {
+  return {
+    host: s.host,
+    port: s.port,
+    username: s.username,
+    // An empty or masked password keeps the stored one server-side.
+    password: s.password || MASK,
+    from: s.fromName ? `${s.fromName} <${s.fromAddress}>` : s.fromAddress,
+    secure: s.encryption !== "none",
+  };
+}
+
+// The backend reports one error string; place it on the step it most likely failed at.
+function failedStep(error: string): TestStepId {
+  const e = error.toLowerCase();
+  if (/dial|connect|refused|timeout|no such host|lookup/.test(e)) return "connect";
+  if (/tls|certificate|x509|handshake/.test(e)) return "tls";
+  if (/auth|credential|password|535/.test(e)) return "auth";
+  return "send";
+}
+
+const STEPS: TestStepId[] = ["connect", "tls", "auth", "send"];
+
 export const adminMail = {
-  get: (): Promise<MailConfig> => req("GET", "/mail"),
-  save: (cfg: MailConfig): Promise<void> => req("PUT", "/mail", cfg),
-  test: async (to: string): Promise<MailTestResult> => {
+  get: async (): Promise<SmtpConfig> => toSmtp(await req<BackendMail>("GET", "/mail")),
+  save: (input: SmtpSaveInput): Promise<void> => req("PUT", "/mail", fromSmtp(input)),
+  /** Saves the form first (the backend tests the saved config), then sends a test message. */
+  test: async (input: SmtpSaveInput & { to: string }): Promise<TestOutcome> => {
+    let error: string | undefined;
     try {
-      const r = await req<{ ok?: boolean; error?: string }>("POST", "/mail/test", { to });
-      return { ok: !!r.ok, error: r.error };
+      await adminMail.save(input);
+      const r = await req<{ ok?: boolean; error?: string }>("POST", "/mail/test", { to: input.to });
+      if (!r.ok) error = r.error || "Test failed";
     } catch (e) {
-      return { ok: false, error: e instanceof AdminError ? e.message : "Test failed" };
+      error = e instanceof Error ? e.message : "Test failed";
     }
+    if (!error) return { ok: true, steps: STEPS.map((id) => ({ id, ok: true })) };
+    const at = STEPS.indexOf(failedStep(error));
+    return {
+      ok: false,
+      steps: STEPS.slice(0, at + 1).map((id, i) => (i < at ? { id, ok: true } : { id, ok: false, message: error })),
+    };
   },
 };
 

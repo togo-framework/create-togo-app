@@ -21,6 +21,8 @@ async function post<T = any>(path: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
+export interface AuthMethod { name: string; label: string; type: string; url: string }
+
 export interface Me { email: string; roles?: string[]; permissions?: string[]; [k: string]: unknown }
 
 export const auth = {
@@ -32,7 +34,7 @@ export const auth = {
     if (!res.ok) return null;
     return res.json();
   },
-  methods: async (): Promise<{ name: string; label: string; type: string; url: string }[]> => {
+  methods: async (): Promise<AuthMethod[]> => {
     const res = await fetch(`${API}/api/auth/methods`, { credentials: "include" }).catch(() => null);
     if (!res || !res.ok) return [];
     const d = await res.json().catch(() => ({ methods: [] }));

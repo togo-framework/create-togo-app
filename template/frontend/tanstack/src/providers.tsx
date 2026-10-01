@@ -1,14 +1,14 @@
 import { ReactNode } from "react";
-import { ThemeProvider, LanguageProvider, themes } from "@togo-framework/ui";
+import { NasaqProvider, Toaster } from "@fadymondy/nasaq/web";
 
-// ThemeProvider applies the ToGO brand tokens + multi-theme switching (data-theme on
-// <html>, persisted to localStorage). The full `themes` list enables the ThemePicker
-// to cycle through all presets (dark, light, purple, rose, emerald, and light variants).
-// LanguageProvider supplies EN/AR i18n + RTL.
+// NasaqProvider applies the ToGO brand (data-brand="togo"), the light/dark theme
+// (persisted, applied before paint by the script in index.html), and the EN/AR
+// locale with its direction on <html>. Toaster is mounted once, here.
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider themes={themes}>
-      <LanguageProvider initialLanguage="en">{children}</LanguageProvider>
-    </ThemeProvider>
+    <NasaqProvider brand="togo" defaultTheme="dark">
+      {children}
+      <Toaster />
+    </NasaqProvider>
   );
 }

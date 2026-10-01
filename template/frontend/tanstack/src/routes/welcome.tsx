@@ -1,23 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
-  Layers, LayoutGrid, BookOpen, Boxes, FileText, Blocks, Github, ArrowRight, ArrowLeft,
+  Layers, LayoutGrid, BookOpen, Boxes, FileText, Blocks, GitBranch, ArrowRight, ArrowLeft,
 } from "lucide-react";
-import { Button, useT } from "@togo-framework/ui";
+import { ProductMark, Status, buttonVariants } from "@fadymondy/nasaq/web";
 import { API, APP_NAME } from "../lib/api";
 import { sessionMe, type Me } from "../lib/auth";
-
-/** The ToGO mark (https://to-go.dev/en/brand): six cubes — body in the text colour, accent teal. */
-function ToGOMark({ className }: { className?: string }) {
-  const body = [[0, 1], [1, 0], [1, 2]];
-  const accent = [[2, 1], [2, 3], [3, 2]];
-  return (
-    <svg viewBox="0 0 100 100" role="img" aria-label="ToGO" shapeRendering="crispEdges" className={className}>
-      {body.map(([c, r]) => <rect key={`b${c}${r}`} x={8 + c * 21} y={8 + r * 21} width={21} height={21} fill="currentColor" />)}
-      {accent.map(([c, r]) => <rect key={`a${c}${r}`} x={8 + c * 21} y={8 + r * 21} width={21} height={21} fill="#1F8A99" />)}
-    </svg>
-  );
-}
+import { useLang } from "../lib/i18n";
 
 type Card = {
   icon: typeof Layers;
@@ -33,13 +22,11 @@ const CARDS: Card[] = [
   { icon: Boxes, en: "GraphQL", ar: "GraphQL", descEn: "Explore the schema in the GraphQL playground.", descAr: "استكشف المخطط في GraphQL.", href: `${API}/graphql/play` },
   { icon: FileText, en: "Documentation", ar: "التوثيق", descEn: "Guides, generators and the togo CLI.", descAr: "أدلة ومولّدات وواجهة togo.", href: "https://to-go.dev/docs" },
   { icon: Blocks, en: "Plugins", ar: "الإضافات", descEn: "Add auth, cache, queue, storage in one command.", descAr: "أضف المصادقة والتخزين بأمر واحد.", href: "https://to-go.dev/plugins" },
-  { icon: Github, en: "GitHub", ar: "GitHub", descEn: "Source, issues and the framework repos.", descAr: "المصدر والمستودعات.", href: "https://github.com/togo-framework" },
+  { icon: GitBranch, en: "GitHub", ar: "GitHub", descEn: "Source, issues and the framework repos.", descAr: "المصدر والمستودعات.", href: "https://github.com/togo-framework" },
 ];
 
 export function Welcome() {
-  const { language } = useT();
-  const ar = language === "ar";
-  const tx = (en: string, a: string) => (ar ? a : en);
+  const { ar, tx } = useLang();
   const Arrow = ar ? ArrowLeft : ArrowRight;
 
   const [health, setHealth] = useState<{ status?: string; togo?: string } | null>(null);
@@ -53,12 +40,12 @@ export function Welcome() {
   const online = health?.status === "ok";
 
   return (
-    <main dir={ar ? "rtl" : "ltr"} className="relative min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
 
       <div className="mx-auto w-full max-w-4xl px-6 py-16 sm:py-20">
         {/* hero */}
         <header className="text-center">
-          <ToGOMark className="mx-auto mb-6 h-16 w-16 text-foreground" />
+          <ProductMark size={64} className="mx-auto mb-6" />
           <h1 className="text-4xl font-medium tracking-tight sm:text-5xl">{APP_NAME}</h1>
           <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground sm:text-lg">
             {tx("Built with togo — your Go API and React UI, shipped as one binary.",
@@ -68,17 +55,17 @@ export function Welcome() {
           {/* auth-aware CTAs */}
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             {me ? (
-              <Button asChild size="lg" className="w-full sm:w-auto">
-                <Link to="/dashboard">{tx("Go to dashboard", "اذهب إلى لوحة التحكم")} <Arrow className="ms-1 h-4 w-4" /></Link>
-              </Button>
+              <Link to="/dashboard" className={buttonVariants({ variant: "primary", size: "lg", className: "w-full sm:w-auto" })}>
+                {tx("Go to dashboard", "اذهب إلى لوحة التحكم")} <Arrow />
+              </Link>
             ) : (
               <>
-                <Button asChild size="lg" className="w-full sm:w-auto">
-                  <Link to="/login">{tx("Log in", "تسجيل الدخول")}</Link>
-                </Button>
-                <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
-                  <Link to="/register">{tx("Create account", "إنشاء حساب")}</Link>
-                </Button>
+                <Link to="/login" className={buttonVariants({ variant: "primary", size: "lg", className: "w-full sm:w-auto" })}>
+                  {tx("Log in", "تسجيل الدخول")}
+                </Link>
+                <Link to="/register" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full sm:w-auto" })}>
+                  {tx("Create account", "إنشاء حساب")}
+                </Link>
               </>
             )}
           </div>
@@ -90,11 +77,11 @@ export function Welcome() {
             const inner = (
               <>
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+                  <span className="flex h-10 w-10 items-center justify-center bg-primary/10 text-primary">
                     <c.icon className="h-5 w-5" />
                   </span>
                   <span className="font-medium">{tx(c.en, c.ar)}</span>
-                  <Arrow className="ms-auto h-4 w-4 text-muted-foreground/50 transition-colors group-hover:text-primary" />
+                  <Arrow className="ms-auto h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">{tx(c.descEn, c.descAr)}</p>
               </>
@@ -110,10 +97,9 @@ export function Welcome() {
 
         {/* footer status */}
         <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
+          <Status tone={online ? "success" : "neutral"}>
             {tx(online ? "API connected" : "API offline", online ? "الواجهة متّصلة" : "الواجهة غير متّصلة")}
-          </span>
+          </Status>
           <span aria-hidden>·</span>
           <span>togo {health?.togo ?? "…"}</span>
           <span aria-hidden>·</span>

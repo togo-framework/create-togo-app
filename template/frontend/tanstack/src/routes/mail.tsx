@@ -1,38 +1,52 @@
-// Mail settings — SMTP setup so reset / magic-link emails actually send.
-// The form UI comes from the @togo-framework/ui kit (MailSettingsForm); this
-// page just supplies the data + API callbacks, wired to /api/admin/mail.
+// Mail settings — SMTP setup so reset & magic-link emails actually send.
+// The form is Nasaq's SmtpSettings; this page supplies the data + API callbacks,
+// wired to /api/admin/mail (lib/admin-users maps between the two shapes).
 import { useEffect, useState } from "react";
-import { PageHeader, MailSettingsForm, useT, type MailConfig } from "@togo-framework/ui";
+import { PageHeader, SmtpSettings, ErrorState, type SmtpConfig } from "@fadymondy/nasaq/web";
 import { adminMail, AdminError } from "../lib/admin-users";
+import { sessionMe } from "../lib/auth";
+import { useLang } from "../lib/i18n";
+
+const EMPTY: SmtpConfig = { host: "", port: 587, encryption: "starttls", username: "", fromName: "", fromAddress: "", passwordSet: false };
 
 export function Mail() {
-  const { language } = useT();
-  const [cfg, setCfg] = useState<MailConfig>({ port: 587, secure: true });
+  const { tx } = useLang();
+  const [cfg, setCfg] = useState<SmtpConfig>(EMPTY);
   const [available, setAvailable] = useState(true);
-  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [testTo, setTestTo] = useState("");
 
   useEffect(() => {
+    sessionMe().then((me) => setTestTo(me?.email ?? ""));
     adminMail.get()
-      .then((d) => setCfg({ port: 587, secure: true, ...(d ?? {}) }))
+      .then(setCfg)
       .catch((e) => { if (e instanceof AdminError && (e.status === 404 || e.status === 501)) setAvailable(false); })
-      .finally(() => setLoaded(true));
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
-        title={language === "ar" ? "إعدادات البريد" : "Mail settings"}
-        description={language === "ar" ? "إعداد SMTP لإرسال رسائل إعادة التعيين والدخول السحري" : "Configure SMTP so reset & magic-link emails are delivered"}
+        title={tx("Mail settings", "إعدادات البريد")}
+        description={tx("Configure SMTP so reset & magic-link emails are delivered", "إعداد SMTP لإرسال رسائل إعادة التعيين والدخول السحري")}
       />
-      {/* key flips once loaded so the kit form re-seeds from `value`. */}
-      <MailSettingsForm
-        key={loaded ? "loaded" : "init"}
-        value={cfg}
-        available={available}
-        language={language}
-        onSave={(c) => adminMail.save(c)}
-        onTest={(to) => adminMail.test(to)}
-      />
+      {available ? (
+        <SmtpSettings
+          value={cfg}
+          loading={loading}
+          defaultTestTo={testTo}
+          onSave={async (input) => {
+            try { await adminMail.save(input); setCfg(await adminMail.get()); }
+            catch (e) { return { error: e instanceof Error ? e.message : tx("Save failed", "تعذّر الحفظ") }; }
+          }}
+          onTest={(input) => adminMail.test(input)}
+        />
+      ) : (
+        <ErrorState
+          title={tx("Mail API unavailable", "واجهة البريد غير متاحة")}
+          description={tx("Install the auth backend with `togo install togo-framework/auth`.", "ثبّت مكوّن المصادقة: togo install togo-framework/auth")}
+        />
+      )}
     </div>
   );
 }

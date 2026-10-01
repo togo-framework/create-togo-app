@@ -1,7 +1,7 @@
 // Package admin ships {{.App}}'s out-of-the-box user-management + mail-setup
 // admin API. It mounts under /api/admin/* and is consumed by the web/ admin
-// pages (the @togo-framework/ui admin suite: UserManagementTable,
-// UserActionsMenu, AddUserDialog, MailSettingsForm).
+// pages (built on the Nasaq UI kit, @fadymondy/nasaq: AdminUsers and
+// SmtpSettings).
 //
 // All accounts come from the togo auth plugin's `users` table; this handler
 // never invents its own schema. When the auth plugin isn't installed the

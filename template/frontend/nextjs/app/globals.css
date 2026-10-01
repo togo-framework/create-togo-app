@@ -1,19 +1,17 @@
 @import "tailwindcss";
-@import "@togo-framework/ui/styles.css";
-@source "../node_modules/@togo-framework/ui/dist";
+@import "@fadymondy/nasaq/tokens.css";
+@import "@fadymondy/nasaq/theme.css";
+@import "@fadymondy/nasaq/web/styles.css";
+/* Tailwind does not scan node_modules: point it at the Nasaq components so their classes are generated. */
+@source "../node_modules/@fadymondy/nasaq/dist/web";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Lusail (Arabic) ships with the app in public/fonts; Nasaq's Arabic stack picks it up by name. */
+@font-face { font-family: "Lusail"; src: url("/fonts/lusail/Lusail-Light.woff2") format("woff2"); font-weight: 300; font-display: swap; }
+@font-face { font-family: "Lusail"; src: url("/fonts/lusail/Lusail-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Lusail"; src: url("/fonts/lusail/Lusail-Medium.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Lusail"; src: url("/fonts/lusail/Lusail-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
 
-/* Colours, radius and type come from the kit (@togo-framework/ui ≥ 0.5.0): the ToGO palette on
-   the fadymondy.com grid — square surfaces, hairlines, no shadows or gradients. next-themes'
-   `.dark` class re-points the same token roles, so there is nothing to override here. */
-@layer base {
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-family: var(--tg-font);
-  }
-}
-
-* {
-  box-sizing: border-box;
+/* Hatched separator used by the welcome card (the grid expression). */
+.tg-hatch {
+  background-image: repeating-linear-gradient(135deg, var(--color-border) 0 1px, transparent 1px 6px);
 }

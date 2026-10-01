@@ -2,23 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ProductMark, Status, buttonVariants } from "@fadymondy/nasaq/web";
 
 const API = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8080";
-
-// The ToGO mark — six-cube lattice (https://to-go.dev/en/brand). Body follows the text colour,
-// the accent cubes stay teal.
-function ToGOMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 100 100" role="img" aria-label="ToGO" shapeRendering="crispEdges" className={className}>
-      <rect x="8" y="29" width="21" height="21" fill="currentColor" />
-      <rect x="29" y="8" width="21" height="21" fill="currentColor" />
-      <rect x="29" y="50" width="21" height="21" fill="currentColor" />
-      <rect x="50" y="29" width="21" height="21" fill="#1F8A99" />
-      <rect x="50" y="71" width="21" height="21" fill="#1F8A99" />
-      <rect x="71" y="50" width="21" height="21" fill="#1F8A99" />
-    </svg>
-  );
-}
 
 // Welcome screen — SPA navigation via next/link; doc links point at the API origin.
 export default function Welcome() {
@@ -28,35 +14,34 @@ export default function Welcome() {
     fetch(`${API}/api/health`).then((r) => r.json()).then(setHealth).catch(() => setHealth(null));
   }, []);
 
+  const ok = health?.status === "ok";
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-foreground">
       <div className="w-full max-w-md border border-border bg-card">
-        <div className="p-8 text-center">
-          <ToGOMark className="mx-auto mb-6 h-16 w-16 text-foreground" />
+        <div className="flex flex-col items-center p-8 text-center">
+          <ProductMark size={64} className="mb-6" />
           <h1 className="text-5xl font-medium tracking-tight">{{.AppPascal}}</h1>
           <p className="mt-3 text-muted-foreground">Built with togo — sign in to your dashboard.</p>
         </div>
 
         <div className="tg-hatch h-3 border-y border-border" />
 
-        <div className="space-y-3 p-8">
-          <Link href="/login" className="block w-full rounded-md bg-primary py-3 text-center font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+        <div className="flex flex-col gap-3 p-8">
+          <Link href="/login" className={buttonVariants({ variant: "primary", size: "lg", className: "w-full" })}>
             Log in
           </Link>
-          <Link href="/register" className="block w-full rounded-md border border-border py-3 text-center font-medium transition-colors hover:bg-accent">
+          <Link href="/register" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full" })}>
             Create account
           </Link>
-          <Link href="/dashboard" className="block pt-2 text-center text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline">
+          <Link href="/dashboard" className="pt-2 text-center text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline">
             Go to dashboard →
           </Link>
         </div>
       </div>
 
       <div className="mt-8 flex items-center justify-center gap-4 font-mono text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <span className={`h-2 w-2 rounded-full ${health?.status === "ok" ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-          API {health?.status === "ok" ? "connected" : "offline"}
-        </span>
+        <Status tone={ok ? "success" : "neutral"}>API {ok ? "connected" : "offline"}</Status>
         <span>·</span>
         <a href={`${API}/docs`} className="transition-colors hover:text-foreground">REST docs</a>
         <span>·</span>

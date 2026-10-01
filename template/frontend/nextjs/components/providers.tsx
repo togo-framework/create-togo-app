@@ -1,24 +1,17 @@
 "use client";
 
-import { ThemeProvider } from "next-themes";
-import { Toaster } from "sonner";
-import { BrandingProvider, LanguageProvider } from "@togo-framework/ui";
+import type { ReactNode } from "react";
+import { NasaqProvider, Toaster } from "@fadymondy/nasaq/web";
 
-const APP = process.env.NEXT_PUBLIC_APP_NAME ?? "togo";
-
-// App-wide client providers:
-//   ThemeProvider     — dark/light via the `.dark` class (design tokens follow)
-//   BrandingProvider  — multi-theme brand color (writes CSS vars on :root)
-//   LanguageProvider  — translations + RTL (en/ar); components also take a `language` prop
-export function Providers({ children }: { children: React.ReactNode }) {
+// NasaqProvider applies the ToGO brand (data-brand="togo"), the light/dark theme
+// (persisted, applied before paint by the script in app/layout.tsx), and the EN/AR
+// locale with its direction on <html>. Toaster is mounted once, here.
+// @fadymondy/nasaq/web is client-only: import it from "use client" files.
+export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <BrandingProvider primaryHex="#1F8A99" accentHex="#1F8A99" productName={APP}>
-        <LanguageProvider initialLanguage="en">
-          {children}
-          <Toaster richColors position="top-right" />
-        </LanguageProvider>
-      </BrandingProvider>
-    </ThemeProvider>
+    <NasaqProvider brand="togo" defaultTheme="dark">
+      {children}
+      <Toaster />
+    </NasaqProvider>
   );
 }

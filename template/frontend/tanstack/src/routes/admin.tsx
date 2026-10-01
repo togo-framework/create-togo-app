@@ -1,30 +1,38 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Table2 } from "lucide-react";
-import { PageHeader, Card } from "@togo-framework/ui";
+import { PageHeader, Card, EmptyState, Skeleton } from "@fadymondy/nasaq/web";
 import { metaResources } from "../lib/admin";
+import { useLang } from "../lib/i18n";
 
 export function AdminHome() {
-  const nav = useNavigate();
+  const { tx } = useLang();
   const [list, setList] = useState<{ name: string; table: string }[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { metaResources().then(setList).finally(() => setLoading(false)); }, []);
   return (
-    <div className="mx-auto max-w-5xl p-8">
-      <PageHeader title="Admin" description={`Manage your resources · ${list.length}`} />
-      {loading ? <p className="text-muted-foreground">Loading…</p> : list.length === 0 ? (
-        <Card className="p-5"><p className="text-muted-foreground">No resources yet — run `togo make:resource Post title:string` and they'll appear here.</p></Card>
+    <div className="flex flex-col gap-6">
+      <PageHeader title={tx("Admin", "الإدارة")} description={tx(`Manage your resources · ${list.length}`, `إدارة الموارد · ${list.length}`)} />
+      {loading ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-20" />)}</div>
+      ) : list.length === 0 ? (
+        <EmptyState
+          icon={Table2}
+          title={tx("No resources yet", "لا توجد موارد بعد")}
+          description={tx("Run `togo make:resource Post title:string` and they'll appear here.", "نفّذ `togo make:resource Post title:string` وستظهر هنا.")}
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((r) => (
-            <button key={r.table} onClick={() => nav({ to: "/admin/$resource", params: { resource: r.table } })} className="text-start">
-              <Card className="p-5 transition hover:border-primary/50">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary"><Table2 className="h-4 w-4" /></span>
-                  <span><span className="block font-medium capitalize">{r.name || r.table}</span><span className="block text-xs text-muted-foreground">/api/{r.table}</span></span>
-                </div>
+            <Link key={r.table} to="/admin/$resource" params={{ resource: r.table }} className="block">
+              <Card className="flex-row items-center gap-3 p-4 transition-colors hover:border-primary/50">
+                <span className="flex size-9 items-center justify-center bg-primary/15 text-primary"><Table2 className="size-4" /></span>
+                <span>
+                  <span className="block font-medium capitalize">{r.name || r.table}</span>
+                  <span className="block text-caption text-muted-foreground" dir="ltr">/api/{r.table}</span>
+                </span>
               </Card>
-            </button>
+            </Link>
           ))}
         </div>
       )}
