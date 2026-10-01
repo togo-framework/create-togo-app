@@ -1,5 +1,5 @@
 // Admin user-management + mail API client — talks to the built-in /api/admin/*
-// surface (internal/admin in the Go app, backed by the togo auth plugin).
+// surface (internal/admin in the Go app, backed by the ToGO auth plugin).
 // Endpoints sit behind the auth session cookie, so every call sends credentials.
 // The mail helpers translate between the backend's SMTP shape and Nasaq's SmtpSettings.
 import type { SmtpConfig, SmtpSaveInput, TestOutcome, TestStepId } from "@fadymondy/nasaq/web";

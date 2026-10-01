@@ -80,7 +80,7 @@ export function Users() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={tx("Users", "المستخدمون")}
-        description={tx("Accounts managed by the togo auth plugin", "حسابات يديرها مكوّن togo للمصادقة")}
+        description={tx("Accounts managed by the ToGO auth plugin", "حسابات يديرها مكوّن ToGO للمصادقة")}
       />
 
       <AdminUsers

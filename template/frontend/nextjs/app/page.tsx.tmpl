@@ -22,7 +22,7 @@ export default function Welcome() {
         <div className="flex flex-col items-center p-8 text-center">
           <ProductMark size={64} className="mb-6" />
           <h1 className="text-5xl font-medium tracking-tight">{{.AppPascal}}</h1>
-          <p className="mt-3 text-muted-foreground">Built with togo — sign in to your dashboard.</p>
+          <p className="mt-3 text-muted-foreground">Built with ToGO — sign in to your dashboard.</p>
         </div>
 
         <div className="tg-hatch h-3 border-y border-border" />
@@ -47,7 +47,7 @@ export default function Welcome() {
         <span>·</span>
         <a href={`${API}/graphql/play`} className="transition-colors hover:text-foreground">GraphQL</a>
       </div>
-      <p className="mt-3 font-mono text-xs text-muted-foreground/70">togo {health?.togo ?? "…"} · powered by Go</p>
+      <p className="mt-3 font-mono text-xs text-muted-foreground/70">ToGO {health?.togo ?? "…"} · powered by Go</p>
     </main>
   );
 }

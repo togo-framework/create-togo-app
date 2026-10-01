@@ -5,6 +5,7 @@ import { AuthLayout, LoginForm, type OAuthProvider } from "@fadymondy/nasaq/web"
 import { auth, clearSession, type AuthMethod } from "../lib/auth";
 import { API, APP_NAME } from "../lib/api";
 import { useLang } from "../lib/i18n";
+import { AppAuthFooter } from "../components/auth-footer";
 
 export function Login() {
   const nav = useNavigate();
@@ -30,7 +31,8 @@ export function Login() {
     <AuthLayout
       title={tx(`Sign in to ${APP_NAME}`, `تسجيل الدخول إلى ${APP_NAME}`)}
       description={tx("Welcome back", "مرحبًا بعودتك")}
-      footer={<p className="text-center text-body-sm text-muted-foreground">{tx("No account?", "ليس لديك حساب؟")} <Link to="/register" className="font-medium text-primary hover:underline">{tx("Create one", "أنشئ حسابًا")}</Link></p>}
+      prompt={<>{tx("No account?", "ليس لديك حساب؟")} <Link to="/register" className="font-medium text-primary hover:underline">{tx("Create one", "أنشئ حسابًا")}</Link></>}
+      footer={<AppAuthFooter />}
     >
       <LoginForm
         showRemember={false}

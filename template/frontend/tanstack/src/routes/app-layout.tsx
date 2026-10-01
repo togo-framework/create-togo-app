@@ -4,7 +4,7 @@ import { LayoutGrid, Table2, UserRound, Users as UsersIcon, Mail as MailIcon } f
 import {
   AppShell, AppHeader, AppMain, Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarItem, SidebarTrigger, SidebarExpandedOnly,
-  DropdownMenuItem, UserMenu, ImpersonationBanner, ProductMark, WsStatus, ThemeSwitcher, LocaleSwitcher,
+  DropdownMenuItem, UserMenu, ImpersonationBanner, ProductMark, WsStatus,
   type WsState,
 } from "@fadymondy/nasaq/web";
 import { auth, sessionMe, clearSession, type Me } from "../lib/auth";
@@ -105,8 +105,7 @@ export function AppLayout() {
         ))}
       </SidebarContent>
       <SidebarFooter>
-        {/* Theme and language sit in the header, so the account menu leaves its own preference submenus out. */}
-        <UserMenu user={{ name, email: me?.email ?? "" }} preferences={false} onSignOut={signOut} labels={{ signOut: tx("Sign out", "تسجيل الخروج") }}>
+        <UserMenu user={{ name, email: me?.email ?? "" }} onSignOut={signOut} labels={{ theme: tx("Theme", "المظهر"), language: tx("Language", "اللغة"), signOut: tx("Sign out", "تسجيل الخروج") }}>
           <DropdownMenuItem onClick={() => nav({ to: "/profile" })}><UserRound />{tx("Profile", "الملف الشخصي")}</DropdownMenuItem>
         </UserMenu>
       </SidebarFooter>
@@ -124,10 +123,6 @@ export function AppLayout() {
       <AppHeader>
         <SidebarTrigger />
         <WsStatus state={live} showLatency={false} />
-        <div className="ms-auto flex items-center gap-1">
-          <LocaleSwitcher />
-          <ThemeSwitcher />
-        </div>
       </AppHeader>
       <AppMain><Outlet /></AppMain>
     </AppShell>
