@@ -2,52 +2,140 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ProductMark, Status, buttonVariants } from "@fadymondy/nasaq/web";
+import { ArrowLeft, ArrowRight, BookOpen, Blocks, Boxes, Database, FileText, GitBranch, LayoutGrid, Rocket, Terminal as TerminalIcon } from "lucide-react";
+import {
+  AppMockupHero, CtaBanner, FeatureGrid, HowItWorks, LocaleSwitcher, ProductLogo, Status, Terminal, TextFlip, ThemeSwitcher,
+  buttonVariants, useNasaq, type FeatureGridItem, type TerminalLine,
+} from "@fadymondy/nasaq/web";
 
 const API = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8080";
+const APP_NAME = "{{.AppPascal}}";
+const DOCS = "https://to-go.dev/en/docs";
+const PLUGINS = "https://to-go.dev/en/plugins";
 
-// Welcome screen — SPA navigation via next/link; doc links point at the API origin.
+// What `togo serve` prints on a fresh app: the hero's mockup.
+function bootLines(version: string): TerminalLine[] {
+  return [
+    { kind: "command", text: "togo serve" },
+    { kind: "info", text: `ToGO ${version} · ${APP_NAME}` },
+    { text: "  REST     /api        OpenAPI 3.1 at /docs" },
+    { text: "  GraphQL  /graphql    playground at /graphql/play" },
+    { text: "  Web      /           Next.js + Nasaq" },
+    { kind: "success", text: "ready on http://localhost:8080" },
+    { kind: "command", text: "togo make:resource Post title:string body:text" },
+    { kind: "success", text: "created migration, sqlc queries, REST + GraphQL, admin page" },
+  ];
+}
+
+// Welcome screen: SPA navigation via next/link; API links point at the API origin.
 export default function Welcome() {
+  const ar = useNasaq().locale.startsWith("ar");
+  const tx = (en: string, arText: string) => (ar ? arText : en);
+  const Arrow = ar ? ArrowLeft : ArrowRight;
+
   const [health, setHealth] = useState<{ status?: string; togo?: string } | null>(null);
 
   useEffect(() => {
     fetch(`${API}/api/health`).then((r) => r.json()).then(setHealth).catch(() => setHealth(null));
   }, []);
 
-  const ok = health?.status === "ok";
+  const online = health?.status === "ok";
+  const version = health?.togo ?? "dev";
+
+  const primary = buttonVariants({ variant: "primary", size: "lg" });
+  const secondary = buttonVariants({ variant: "secondary", size: "lg" });
+
+  // Where a fresh ToGO app sends you next.
+  const next: FeatureGridItem[] = [
+    { icon: <LayoutGrid />, title: tx("Dashboard", "لوحة التحكم"), description: tx("Your admin panel: account, roles and every resource.", "لوحة الإدارة: الحساب والأدوار وكل الموارد."), href: "/dashboard" },
+    { icon: <BookOpen />, title: tx("REST API", "واجهة REST"), description: tx("Typed OpenAPI 3.1 docs for every resource.", "توثيق OpenAPI 3.1 لكل مورد."), href: `${API}/docs` },
+    { icon: <Boxes />, title: "GraphQL", description: tx("Explore the schema in the playground.", "استكشف المخطط في ساحة التجربة."), href: `${API}/graphql/play` },
+    { icon: <FileText />, title: tx("Documentation", "التوثيق"), description: tx("Guides, generators and the ToGO CLI.", "أدلة ومولّدات وأداة ToGO."), href: DOCS },
+    { icon: <Blocks />, title: tx("Plugins", "الإضافات"), description: tx("Add auth, queues, storage or AI in one command.", "أضف المصادقة والطوابير والتخزين والذكاء الاصطناعي بأمر واحد."), href: PLUGINS },
+    { icon: <GitBranch />, title: "GitHub", description: tx("Source, issues and every framework repo.", "المصدر والبلاغات وكل مستودعات الإطار."), href: "https://github.com/togo-framework" },
+  ];
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-foreground">
-      <div className="w-full max-w-md border border-border bg-card">
-        <div className="flex flex-col items-center p-8 text-center">
-          <ProductMark size={64} className="mb-6" />
-          <h1 className="text-5xl font-medium tracking-tight">{{.AppPascal}}</h1>
-          <p className="mt-3 text-muted-foreground">Built with ToGO — sign in to your dashboard.</p>
+    <div className="min-h-dvh bg-background text-foreground">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-8">
+          <Link href="/" aria-label={APP_NAME} className="flex items-center gap-2">
+            <ProductLogo size={22} />
+          </Link>
+          <nav className="hidden items-center gap-5 text-body-sm text-muted-foreground md:flex">
+            <a href={DOCS} target="_blank" rel="noreferrer" className="hover:text-foreground">{tx("Docs", "التوثيق")}</a>
+            <a href={`${API}/docs`} className="hover:text-foreground">API</a>
+            <a href={PLUGINS} target="_blank" rel="noreferrer" className="hover:text-foreground">{tx("Plugins", "الإضافات")}</a>
+          </nav>
+          <div className="ms-auto flex items-center gap-2">
+            <LocaleSwitcher />
+            <ThemeSwitcher />
+            <Link href="/login" className={buttonVariants({ variant: "secondary", size: "sm" })}>{tx("Sign in", "تسجيل الدخول")}</Link>
+          </div>
         </div>
+      </header>
 
-        <div className="tg-hatch h-3 border-y border-border" />
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-20 px-4 pb-20 sm:px-8">
+        <AppMockupHero
+          eyebrow={<Status tone={online ? "success" : "neutral"}>{online ? tx("API connected", "الواجهة متصلة") : tx("API offline", "الواجهة غير متصلة")}</Status>}
+          title={
+            <>
+              {APP_NAME}
+              <br />
+              <TextFlip
+                className="text-nq-brand"
+                phrases={ar ? ["واجهة Go وتطبيق Next.js", "مولّدات بأمر واحد", "ملف تنفيذي واحد"] : ["Go API + Next.js UI", "one-command generators", "one binary to ship"]}
+              />
+            </>
+          }
+          description={tx(
+            "Built with ToGO: typed REST and GraphQL from one schema, an admin dashboard, auth and a Next.js front end.",
+            "مبنيّ بـ ToGO: واجهات REST وGraphQL مُنمّطة من مخطط واحد، ولوحة إدارة، ومصادقة، وواجهة Next.js.",
+          )}
+          actions={
+            <>
+              <Link href="/register" className={primary}>{tx("Create account", "إنشاء حساب")} <Arrow /></Link>
+              <Link href="/login" className={secondary}>{tx("Sign in", "تسجيل الدخول")}</Link>
+            </>
+          }
+          proof={`ToGO ${version} · ${tx("powered by Go", "مدعوم بـ Go")}`}
+          frame="window"
+          frameTitle="terminal"
+          mockupLabel={tx("The ToGO CLI serving this app", "أداة ToGO تشغّل هذا التطبيق")}
+          mockup={<Terminal lines={bootLines(version)} title="togo" height={300} />}
+        />
 
-        <div className="flex flex-col gap-3 p-8">
-          <Link href="/login" className={buttonVariants({ variant: "primary", size: "lg", className: "w-full" })}>
-            Log in
-          </Link>
-          <Link href="/register" className={buttonVariants({ variant: "secondary", size: "lg", className: "w-full" })}>
-            Create account
-          </Link>
-          <Link href="/dashboard" className="pt-2 text-center text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline">
-            Go to dashboard →
-          </Link>
+        <FeatureGrid
+          eyebrow={tx("Start here", "ابدأ من هنا")}
+          title={tx("Where to next", "إلى أين بعد ذلك")}
+          description={tx("Everything a fresh ToGO app gives you, one click away.", "كل ما يقدّمه تطبيق ToGO جديد، على بُعد نقرة.")}
+          features={next}
+        />
+
+        <HowItWorks
+          eyebrow={tx("How it works", "كيف يعمل")}
+          title={tx("From schema to shipped", "من المخطط إلى الإطلاق")}
+          steps={[
+            { icon: <TerminalIcon />, title: tx("Make a resource", "أنشئ موردًا"), description: <code className="text-caption">togo make:resource Post title:string</code> },
+            { icon: <Database />, title: tx("Generate", "ولّد"), description: tx("Migrations, sqlc queries, REST, GraphQL and the admin page.", "الترحيلات واستعلامات sqlc وREST وGraphQL وصفحة الإدارة.") },
+            { icon: <Rocket />, title: tx("Ship it", "أطلقه"), description: <code className="text-caption">togo build && togo deploy</code> },
+          ]}
+        />
+
+        <CtaBanner
+          title={tx(`Start using ${APP_NAME}`, `ابدأ باستخدام ${APP_NAME}`)}
+          description={tx("Manage your account, roles and every resource you generate.", "أدِر حسابك وأدوارك وكل مورد تولّده.")}
+          action={<Link href="/register" className={primary}>{tx("Create account", "إنشاء حساب")}</Link>}
+          secondaryAction={<a href={DOCS} target="_blank" rel="noreferrer" className={secondary}>{tx("Read the docs", "اقرأ التوثيق")}</a>}
+        />
+      </main>
+
+      <footer className="border-t border-border">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-caption text-muted-foreground sm:px-8">
+          <span>{APP_NAME} · ToGO {version}</span>
+          <span>{tx("Built with ToGO and Nasaq", "مبنيّ بـ ToGO وNasaq")}</span>
         </div>
-      </div>
-
-      <div className="mt-8 flex items-center justify-center gap-4 font-mono text-xs text-muted-foreground">
-        <Status tone={ok ? "success" : "neutral"}>API {ok ? "connected" : "offline"}</Status>
-        <span>·</span>
-        <a href={`${API}/docs`} className="transition-colors hover:text-foreground">REST docs</a>
-        <span>·</span>
-        <a href={`${API}/graphql/play`} className="transition-colors hover:text-foreground">GraphQL</a>
-      </div>
-      <p className="mt-3 font-mono text-xs text-muted-foreground/70">ToGO {health?.togo ?? "…"} · powered by Go</p>
-    </main>
+      </footer>
+    </div>
   );
 }
