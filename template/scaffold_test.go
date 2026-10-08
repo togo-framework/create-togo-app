@@ -630,6 +630,77 @@ func (c *client) decode(b []byte, v any) {
 	}
 }
 
+// failingSeederSource stands in for a generated seeder registry whose seeder
+// returns an error.
+const failingSeederSource = `package seeders
+
+import (
+	"context"
+	"errors"
+
+	"example.com/demo/internal/app"
+)
+
+func SeedAll(ctx context.Context, a *app.App) error {
+	return errors.New("e2e seeder failure")
+}
+`
+
+// TestScaffoldSeedExitStatus runs a Postgres project's seed command against
+// TOGO_SCAFFOLD_PG_URL and checks its exit status, so `togo seed` in a script or
+// CI step fails when nothing was seeded: non-zero when the database cannot be
+// opened or a seeder fails, zero when seeding completes.
+func TestScaffoldSeedExitStatus(t *testing.T) {
+	url := os.Getenv("TOGO_SCAFFOLD_PG_URL")
+	if url == "" {
+		t.Skip("set TOGO_SCAFFOLD_PG_URL to a throwaway Postgres database")
+	}
+	dir := t.TempDir()
+	render(t, dir, "nextjs", "postgres")
+	goEnv := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
+	install(t, dir, goEnv, plugin{module: "github.com/togo-framework/db-postgres", version: "v0.1.0"})
+	run(t, dir, goEnv, "go", "mod", "tidy")
+	// Run a built binary so each case checks the command's exit status, not go run's.
+	bin := filepath.Join(dir, "seed")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	original := read(t, dir, "internal/db/seeders/registry.gen.go")
+	registry := filepath.Join(dir, "internal", "db", "seeders", "registry.gen.go")
+
+	// Nothing listens on port 1, so connecting to it fails straight away.
+	unreachable := "postgres://postgres:postgres@127.0.0.1:1/demo?sslmode=disable&connect_timeout=5"
+	for _, tc := range []struct {
+		name, driver, url, registry, log string
+		ok                               bool
+	}{
+		{"driver not registered", "nosuchdriver", url, original, "seed: database unavailable", false},
+		{"database unreachable", "pgx", unreachable, original, "seed: database unavailable", false},
+		{"seeder fails", "pgx", url, failingSeederSource, "e2e seeder failure", false},
+		{"seeding completes", "pgx", url, original, "seed complete", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(registry, []byte(tc.registry), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			run(t, dir, goEnv, "go", "build", "-o", bin, "./cmd/seed")
+			cmd := exec.Command(bin)
+			cmd.Dir = dir
+			cmd.Env = append(goEnv, "DB_DRIVER="+tc.driver, "DATABASE_URL="+tc.url)
+			out, err := cmd.CombinedOutput()
+			if !strings.Contains(string(out), tc.log) {
+				t.Errorf("seed output lacks %q:\n%s", tc.log, out)
+			}
+			if tc.ok && err != nil {
+				t.Errorf("seed exited with %v, want success:\n%s", err, out)
+			}
+			if !tc.ok && err == nil {
+				t.Errorf("seed exited 0, want a non-zero exit status:\n%s", out)
+			}
+		})
+	}
+}
+
 func run(t *testing.T, dir string, env []string, name string, args ...string) {
 	t.Helper()
 	output(t, dir, env, name, args...)

@@ -57,6 +57,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-      - run: go test ./template -run TestScaffoldMigratePostgres -v -timeout 15m
+      - run: go test ./template -run 'TestScaffoldMigratePostgres|TestScaffoldSeedExitStatus' -v -timeout 15m
         env:
           TOGO_SCAFFOLD_PG_URL: postgres://postgres:postgres@localhost:5432/demo?sslmode=disable
