@@ -34,3 +34,29 @@ jobs:
       - run: go test ./template -run 'TestScaffoldBuilds/${{ matrix.frontend }}$' -v -timeout 30m
         env:
           TOGO_SCAFFOLD_E2E: "1"
+
+  # Renders a Postgres project the way `togo new --db postgres` does and runs its
+  # migrate and seed commands against a throwaway database.
+  migrate-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: demo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - run: go test ./template -run TestScaffoldMigratePostgres -v -timeout 15m
+        env:
+          TOGO_SCAFFOLD_PG_URL: postgres://postgres:postgres@localhost:5432/demo?sslmode=disable

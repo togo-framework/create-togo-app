@@ -9,6 +9,7 @@ import (
 
 	"{{.Module}}/internal/app"
 	"{{.Module}}/internal/db/seeders"
+	_ "{{.Module}}/internal/plugins" // registers the db driver and other installed plugins
 )
 
 func main() {
