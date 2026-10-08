@@ -3,9 +3,10 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
-// Refreshes the Supabase auth session on every request and keeps cookies in sync.
-// Add route protection by redirecting when `user` is null for guarded paths.
-export async function middleware(request: NextRequest) {
+// Next.js 16 proxy (formerly middleware): refreshes the Supabase auth session on
+// every request and keeps cookies in sync. Add route protection by redirecting
+// when `user` is null for guarded paths.
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -6,6 +6,7 @@ import { Welcome } from "./routes/welcome";
 import { Login } from "./routes/login";
 import { Register } from "./routes/register";
 import { Reset } from "./routes/reset";
+import { ResetPassword } from "./routes/reset-password";
 import { AppLayout } from "./routes/app-layout";
 
 // The authenticated admin surface (dashboard charts/widgets, the
@@ -16,7 +17,6 @@ const Dashboard = lazyRouteComponent(() => import("./routes/dashboard"), "Dashbo
 const AdminHome = lazyRouteComponent(() => import("./routes/admin"), "AdminHome");
 const AdminResource = lazyRouteComponent(() => import("./routes/admin-resource"), "AdminResource");
 const Users = lazyRouteComponent(() => import("./routes/users"), "Users");
-const Mail = lazyRouteComponent(() => import("./routes/mail"), "Mail");
 const Profile = lazyRouteComponent(() => import("./routes/profile"), "Profile");
 
 const rootRoute = createRootRoute({ component: () => (<Providers><Outlet /></Providers>) });
@@ -30,6 +30,13 @@ const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", com
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", component: Login, beforeLoad: redirectIfAuthed });
 const registerRoute = createRoute({ getParentRoute: () => rootRoute, path: "/register", component: Register, beforeLoad: redirectIfAuthed });
 const resetRoute = createRoute({ getParentRoute: () => rootRoute, path: "/reset", component: Reset });
+// Reset links from auth (AUTH_RESET_PATH, default /reset-password?token=…).
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reset-password",
+  component: ResetPassword,
+  validateSearch: (s: Record<string, unknown>): { token?: string } => (typeof s.token === "string" ? { token: s.token } : {}),
+});
 
 // Protected shell. The guard runs in beforeLoad — BEFORE the layout/children render —
 // so unauthenticated visitors are redirected to /login without the private page ever
@@ -49,12 +56,11 @@ const dashboardRoute = createRoute({ getParentRoute: () => appRoute, path: "/das
 const adminRoute = createRoute({ getParentRoute: () => appRoute, path: "/admin", component: AdminHome });
 const resourceRoute = createRoute({ getParentRoute: () => appRoute, path: "/admin/$resource", component: AdminResource });
 const usersRoute = createRoute({ getParentRoute: () => appRoute, path: "/users", component: Users });
-const mailRoute = createRoute({ getParentRoute: () => appRoute, path: "/mail", component: Mail });
 const profileRoute = createRoute({ getParentRoute: () => appRoute, path: "/profile", component: Profile });
 
 const routeTree = rootRoute.addChildren([
-  indexRoute, loginRoute, registerRoute, resetRoute,
-  appRoute.addChildren([dashboardRoute, adminRoute, resourceRoute, usersRoute, mailRoute, profileRoute]),
+  indexRoute, loginRoute, registerRoute, resetRoute, resetPasswordRoute,
+  appRoute.addChildren([dashboardRoute, adminRoute, resourceRoute, usersRoute, profileRoute]),
 ]);
 
 export const router = createRouter({

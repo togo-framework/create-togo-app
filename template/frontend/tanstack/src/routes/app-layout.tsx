@@ -1,6 +1,6 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { Outlet, useNavigate, useRouterState, Link } from "@tanstack/react-router";
-import { LayoutGrid, Table2, UserRound, Users as UsersIcon, Mail as MailIcon } from "lucide-react";
+import { LayoutGrid, Table2, UserRound, Users as UsersIcon } from "lucide-react";
 import {
   AppShell, AppHeader, AppMain, Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
   SidebarGroup, SidebarItem, SidebarTrigger, SidebarExpandedOnly,
@@ -8,9 +8,8 @@ import {
   type WsState,
 } from "@fadymondy/nasaq/web";
 import { auth, sessionMe, clearSession, type Me } from "../lib/auth";
-import { getImpersonating, setImpersonating } from "../lib/admin-users";
 import { metaResources, adminList, type ResourceMeta } from "../lib/admin";
-import { API, APP_NAME } from "../lib/api";
+import { API, APP_NAME, IMPERSONATION_EVENT, getImpersonation, setImpersonation, type Impersonation } from "../lib/api";
 import { useLang } from "../lib/i18n";
 
 /** Group a flat resource list by the optional `group` field.
@@ -33,13 +32,12 @@ export function AppLayout() {
   const [resources, setResources] = useState<ResourceMeta[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [live, setLive] = useState<WsState>("connecting");
-  const [imp, setImp] = useState<string | null>(getImpersonating());
+  const [imp, setImp] = useState<Impersonation | null>(getImpersonation());
 
   useEffect(() => {
-    const on = () => setImp(getImpersonating());
-    window.addEventListener("togo-impersonation", on);
-    window.addEventListener("storage", on);
-    return () => { window.removeEventListener("togo-impersonation", on); window.removeEventListener("storage", on); };
+    const on = () => setImp(getImpersonation());
+    window.addEventListener(IMPERSONATION_EVENT, on);
+    return () => window.removeEventListener(IMPERSONATION_EVENT, on);
   }, []);
 
   useEffect(() => {
@@ -66,7 +64,20 @@ export function AppLayout() {
       nav({ to });
     },
   });
-  const signOut = async () => { await auth.logout(); clearSession(); nav({ to: "/login" }); };
+  // Stop acting as the user (auth revokes the token and audits it), then return to the
+  // admin's own session. A failed stop rejects, so the banner stays and reports it.
+  const stopImpersonating = async () => {
+    await auth.stopImpersonation();
+    setImpersonation(null);
+    window.location.assign("/users");
+  };
+  const signOut = async () => {
+    if (imp) await auth.stopImpersonation();
+    setImpersonation(null);
+    await auth.logout();
+    clearSession();
+    nav({ to: "/login" });
+  };
   const grouped = groupResources(resources);
   const name = me?.email?.split("@")[0] ?? "…";
 
@@ -84,7 +95,6 @@ export function AppLayout() {
           <SidebarItem {...link("/dashboard")} icon={<LayoutGrid />}>{tx("Dashboard", "لوحة التحكم")}</SidebarItem>
           <SidebarItem {...link("/admin")} icon={<Table2 />}>{tx("Admin", "الإدارة")}</SidebarItem>
           <SidebarItem {...link("/users")} icon={<UsersIcon />}>{tx("Users", "المستخدمون")}</SidebarItem>
-          <SidebarItem {...link("/mail")} icon={<MailIcon />}>{tx("Mail settings", "إعدادات البريد")}</SidebarItem>
         </SidebarGroup>
 
         {/* Resource groups — each `group` value becomes its own sidebar section */}
@@ -115,10 +125,7 @@ export function AppLayout() {
   return (
     <AppShell sidebar={sidebar}>
       {imp ? (
-        <ImpersonationBanner
-          as={{ name: imp, email: imp }}
-          onExit={async () => { await auth.logout(); clearSession(); setImpersonating(null); window.location.assign("/login"); }}
-        />
+        <ImpersonationBanner as={{ name: imp.email, email: imp.email }} startedAt={imp.startedAt} onExit={stopImpersonating} />
       ) : null}
       <AppHeader>
         <SidebarTrigger />

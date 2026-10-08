@@ -29,6 +29,30 @@ deps on first run). Use `togo serve --api-only` / `--web-only`, or `togo web`.
   ([`@fadymondy/nasaq`](https://www.npmjs.com/package/@fadymondy/nasaq), ToGO brand), lucide icons
 - **AI**: `.claude/` skills + agents + `.mcp.json` wired to the togo MCP server
 
+## Auth and admin
+
+Users, sessions and user administration come from the auth plugin
+([`togo-framework/auth`](https://github.com/togo-framework/auth)). The admin API is
+`/api/auth/admin/*`: every route needs the `admin` role, checked against the
+database on each request. Cookie-authenticated writes send `X-CSRF-Token` from
+`GET /api/auth/csrf`. With the Next.js frontend, the dashboard plugin adds the admin
+UI (users, impersonation, mail settings). The TanStack frontend ships a Users page
+(roles, reset and magic links, impersonation) and the `/reset-password` page that
+reset links open (`AUTH_RESET_PATH`).
+
+Accounts start with no roles, and auth has no endpoint that grants the first
+admin: set `roles` to `admin` for that user in the `users` table (a seeder or SQL),
+or call `SetRoles` from trusted Go code. The `auth-dev` developer login is not an
+admin under auth v0.10.0, because roles come from the database, not the token.
+
+Impersonation hands the admin a bearer token for the target user; the TanStack
+frontend sends it on API calls instead of the admin's cookie. `/events`
+(Server-Sent Events via `EventSource`) cannot carry that header, so the stream keeps
+the browser's own session while impersonating. Don't use it to deliver
+per-user data.
+
+Optional, not installed by default: Autopilot (`togo install togo-framework/autopilot`).
+
 ## Layout
 
 ```

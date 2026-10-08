@@ -1,22 +1,21 @@
 # {{.App}} — togo project
 
 A togo app (Go API + web, one binary). Built with the togo
-microkernel + plugins. This file is loaded by Claude Code (interactive **and**
-the Autopilot runner's headless sessions) — follow it.
+microkernel + plugins. This file is loaded by Claude Code — follow it.
 
-## How work happens here: Autopilot
+## Auth and administration
 
-This project ships **autopilot** — an Issues → Agent → Code → Deploy loop.
+The auth plugin (`togo-framework/auth`) owns sign-in, sessions, CSRF and user
+administration. Admin routes live at `/api/auth/admin/*`; they require the
+`admin` role, re-checked against the database on every request, and refuse
+API tokens and impersonated sessions. Don't add a second admin API to this app:
+extend the plugin or call its routes. With the Next.js frontend, the dashboard
+plugin (`togo-framework/dashboard`) provides the admin UI and mail settings. The
+TanStack frontend has its own Users page on that API (`web/src/routes/users.tsx`)
+and the `/reset-password` page that reset links open; it has no mail settings UI.
 
-- **Board:** `/autopilot` · **API:** `/api/autopilot/*` · issues live in the app DB.
-- The human files issues; the **runner** (opt-in `AUTOPILOT_RUNNER=1`) claims
-  `ready` issues, implements them here with Claude Code, and opens a PR
-  (`in_review`). Humans accept or re-run.
-- **When you (an agent) implement an issue:** make the change in the working
-  tree only — do **not** run git commit/push (the runner owns git). If you can't
-  proceed without a human decision, make no changes and reply on one line
-  `BLOCKED: <question>`.
-- To start building the core, use the **`autopilot`** skill (`.claude/skills/autopilot`).
+Autopilot (`togo-framework/autopilot`) is not installed by default. It is
+optional: `togo install togo-framework/autopilot`.
 
 ## Conventions (see `.claude/rules/conventions.md`)
 
@@ -31,5 +30,5 @@ This project ships **autopilot** — an Issues → Agent → Code → Deploy loo
 ## Run
 
 ```bash
-togo generate && togo migrate && togo serve   # http://localhost:8080  (board: /autopilot)
+togo generate && togo migrate && togo serve   # http://localhost:8080
 ```

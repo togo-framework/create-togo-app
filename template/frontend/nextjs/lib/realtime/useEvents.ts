@@ -9,7 +9,10 @@ import { useEffect, useRef } from "react";
 //   useEvents("post.created", (data) => mutate("/posts"));
 export function useEvents(event: string, onEvent: (data: unknown) => void) {
   const handler = useRef(onEvent);
-  handler.current = onEvent;
+
+  useEffect(() => {
+    handler.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     const es = new EventSource("/events");
