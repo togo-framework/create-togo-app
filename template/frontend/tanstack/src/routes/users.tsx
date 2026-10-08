@@ -1,5 +1,5 @@
 // Users admin — the out-of-the-box account-management page built on Nasaq's
-// AdminUsers. Wired to the app's /api/admin/* surface (internal/admin). Clicking a
+// AdminUsers. Wired to the auth plugin's admin API (/api/auth/admin/*). Clicking a
 // row opens a dialog for the actions AdminUsers has no slot for: magic link + delete.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link2, Trash2 } from "lucide-react";
@@ -8,7 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, toast,
   type ManagedUser, type ManagedRole,
 } from "@fadymondy/nasaq/web";
-import { adminUsers, setImpersonating, AdminError, type AdminUser, type AdminLinkResult } from "../lib/admin-users";
+import { adminUsers, AdminError, type AdminUser, type AdminLinkResult } from "../lib/admin-users";
 import { sessionMe } from "../lib/auth";
 import { useLang } from "../lib/i18n";
 
@@ -70,7 +70,7 @@ export function Users() {
         <PageHeader title={tx("Users", "المستخدمون")} />
         <ErrorState
           title={tx("Admin API unavailable", "واجهة الإدارة غير متاحة")}
-          description={tx("Install the auth backend with `togo install togo-framework/auth`.", "ثبّت مكوّن المصادقة: togo install togo-framework/auth")}
+          description={tx("This app's auth plugin has no admin API. Upgrade it: `go get github.com/togo-framework/auth@v0.10.0`.", "مكوّن المصادقة لا يوفّر واجهة الإدارة. حدّثه: go get github.com/togo-framework/auth@v0.10.0")}
         />
       </div>
     );
@@ -105,7 +105,7 @@ export function Users() {
         onImpersonate={async (u) => {
           try {
             await adminUsers.impersonate(u.id);
-            setImpersonating(u.email);
+            // Full reload so every cached /me and resource read re-runs as the user.
             window.location.assign("/dashboard");
           } catch (e) { return errorOf(e); }
         }}

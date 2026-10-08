@@ -29,6 +29,19 @@ deps on first run). Use `togo serve --api-only` / `--web-only`, or `togo web`.
   ([`@fadymondy/nasaq`](https://www.npmjs.com/package/@fadymondy/nasaq), ToGO brand), lucide icons
 - **AI**: `.claude/` skills + agents + `.mcp.json` wired to the togo MCP server
 
+## Auth and admin
+
+Users, sessions and user administration come from the auth plugin
+([`togo-framework/auth`](https://github.com/togo-framework/auth)). The admin API is
+`/api/auth/admin/*`: every route needs the `admin` role, checked against the
+database on each request. Cookie-authenticated writes send `X-CSRF-Token` from
+`GET /api/auth/csrf`. With the Next.js frontend, the dashboard plugin adds the admin
+UI (users, impersonation, mail settings). The TanStack frontend ships a Users page
+(roles, reset and magic links, impersonation) and the `/reset-password` page that
+reset links open (`AUTH_RESET_PATH`).
+
+Optional, not installed by default: Autopilot (`togo install togo-framework/autopilot`).
+
 ## Layout
 
 ```

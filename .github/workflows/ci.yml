@@ -14,3 +14,23 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
+
+  # Renders a real project per frontend and builds it against released modules:
+  # Go (tidy, build, vet) and web (npm install, lint, typecheck, build).
+  scaffold:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        frontend: [tanstack, nextjs]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: go test ./template -run 'TestScaffoldBuilds/${{ matrix.frontend }}$' -v -timeout 30m
+        env:
+          TOGO_SCAFFOLD_E2E: "1"

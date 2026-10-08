@@ -1,7 +1,8 @@
-import { API } from "./api";
+// Resource CRUD acts as the current user (apiFetch adds the impersonation bearer when active).
+import { API, apiFetch } from "./api";
 
 export async function adminList(table: string): Promise<any[]> {
-  const r = await fetch(`${API}/api/${table}`, { credentials: "include" });
+  const r = await apiFetch(`/api/${table}`);
   if (!r.ok) throw new Error(`load failed (${r.status})`);
   const d = await r.json();
   return Array.isArray(d) ? d : (d.items ?? d.data ?? []);
@@ -27,7 +28,7 @@ export async function adminListPaged(
   if (opts.order) qs.set("order", opts.order);
   if (opts.search) qs.set("q", opts.search);
 
-  const r = await fetch(`${API}/api/${table}?${qs}`, { credentials: "include" });
+  const r = await apiFetch(`/api/${table}?${qs}`);
   if (!r.ok) throw new Error(`load failed (${r.status})`);
   const d = await r.json();
   // Server returns { items, total } → use directly.
@@ -40,7 +41,7 @@ export async function adminListPaged(
   return { items: all.slice(start, start + opts.pageSize), total: all.length, page: opts.page, pageSize: opts.pageSize };
 }
 export async function adminGet(table: string, id: string): Promise<any> {
-  const r = await fetch(`${API}/api/${table}/${id}`, { credentials: "include" });
+  const r = await apiFetch(`/api/${table}/${id}`);
   if (!r.ok) throw new Error(`load failed (${r.status})`);
   return r.json();
 }
@@ -50,8 +51,8 @@ async function csrf(): Promise<string> {
 }
 async function write(method: string, path: string, body?: unknown) {
   const token = await csrf();
-  const r = await fetch(`${API}${path}`, {
-    method, credentials: "include",
+  const r = await apiFetch(path, {
+    method,
     headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -135,7 +136,7 @@ export function validateField(f: ResourceField, raw: string): string {
 }
 
 export async function metaResources(): Promise<ResourceMeta[]> {
-  const r = await fetch(`${API}/api/_meta/resources`, { credentials: "include" }).catch(() => null);
+  const r = await apiFetch("/api/_meta/resources").catch(() => null);
   if (!r || !r.ok) return [];
   return (await r.json().catch(() => ({ resources: [] }))).resources ?? [];
 }

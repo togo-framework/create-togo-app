@@ -1,6 +1,7 @@
 // togo auth client — talks to the auth plugin's /api/auth/* endpoints.
-// Session is an HttpOnly cookie; CSRF uses the double-submit token.
-import { API } from "./api";
+// Session is an HttpOnly cookie; CSRF uses the double-submit token. While an admin
+// impersonates someone, account calls go through apiFetch with that user's bearer.
+import { API, apiFetch } from "./api";
 
 async function csrf(): Promise<string> {
   const res = await fetch(`${API}/api/auth/csrf`, { credentials: "include" });
@@ -10,9 +11,8 @@ async function csrf(): Promise<string> {
 
 async function post<T = any>(path: string, body?: unknown): Promise<T> {
   const token = await csrf();
-  const res = await fetch(`${API}/api/auth/${path}`, {
+  const res = await apiFetch(`/api/auth/${path}`, {
     method: "POST",
-    credentials: "include",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -28,9 +28,14 @@ export interface Me { email: string; roles?: string[]; permissions?: string[]; [
 export const auth = {
   login: (email: string, password: string) => post("login", { email, password }),
   register: (email: string, password: string) => post("register", { email, password }),
-  logout: () => post("logout"),
+  // Always ends the signed-in (cookie) session, never an impersonation token.
+  logout: async () => {
+    const token = await csrf();
+    const res = await fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include", headers: { "X-CSRF-Token": token } });
+    if (!res.ok) throw new Error(`sign out failed (${res.status})`);
+  },
   me: async (): Promise<Me | null> => {
-    const res = await fetch(`${API}/api/auth/me`, { credentials: "include" });
+    const res = await apiFetch("/api/auth/me");
     if (!res.ok) return null;
     return res.json();
   },
@@ -42,6 +47,10 @@ export const auth = {
   },
   requestOtp: (email: string, purpose = "reset") => post("otp", { email, purpose }),
   verifyOtp: (email: string, code: string, purpose = "reset") => post("otp/verify", { email, code, purpose }),
+  // Completes a reset link (AUTH_RESET_PATH, default /reset-password?token=…).
+  resetPassword: (token: string, password: string) => post("password/reset", { token, password }),
+  // Ends an impersonation server-side (revokes the token, writes the audit event).
+  stopImpersonation: () => post("impersonation/stop"),
 
   // Account security (signed in).
   changePassword: (oldPassword: string, newPassword: string) =>
@@ -53,16 +62,15 @@ export const auth = {
 
   // Personal access tokens: the plaintext token is returned once, on create.
   tokens: async (): Promise<AccessToken[]> => {
-    const res = await fetch(`${API}/api/auth/tokens`, { credentials: "include" });
+    const res = await apiFetch("/api/auth/tokens");
     return res.ok ? res.json() : [];
   },
   createToken: (name: string, abilities: string[], expiresInHours = 0) =>
     post<{ token: string }>("tokens", { name, abilities, expires_in_hours: expiresInHours }),
   revokeToken: async (id: string) => {
     const token = await csrf();
-    const res = await fetch(`${API}/api/auth/tokens/${encodeURIComponent(id)}`, {
+    const res = await apiFetch(`/api/auth/tokens/${encodeURIComponent(id)}`, {
       method: "DELETE",
-      credentials: "include",
       headers: { "X-CSRF-Token": token },
     });
     if (!res.ok) throw new Error(`revoke failed (${res.status})`);

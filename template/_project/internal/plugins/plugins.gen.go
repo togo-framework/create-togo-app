@@ -5,11 +5,10 @@
 package plugins
 
 import (
+	// Auth: users, sessions/JWT, CSRF and the admin API at /api/auth/admin/*.
+	_ "github.com/togo-framework/auth"
 	// Dynamic config store — powers the settings tier of provider selection.
 	_ "github.com/togo-framework/settings"
 	// Data capability (uniform Query; default pg backend → pg_analytics + pg_search).
 	_ "github.com/togo-framework/data"
-	// Autopilot — the in-app Issues → Agent → Code → Deploy loop (provider-aware:
-	// impl=claude / exec=local by default; install coder/omnigent to swap).
-	_ "github.com/togo-framework/autopilot"
 )

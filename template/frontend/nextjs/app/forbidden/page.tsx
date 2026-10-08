@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 import { ErrorState, buttonVariants } from "@fadymondy/nasaq/web";
 
-// 403 page — redirect here from middleware/guards when access is denied.
+// 403 page — redirect here from the proxy or route guards when access is denied.
 export default function Forbidden() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
