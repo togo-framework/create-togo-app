@@ -3,6 +3,8 @@ package template
 import (
 	"bytes"
 	"encoding/json"
+	"go/parser"
+	"go/token"
 	"io"
 	"io/fs"
 	"net"
@@ -169,6 +171,36 @@ func TestScaffoldContract(t *testing.T) {
 	}
 }
 
+// Database drivers other than SQLite are plugins (db-postgres, db-mysql, …) that
+// `togo new --db` blank-imports in internal/plugins, so every command that opens
+// the database must load that package: cmd/api through internal/server, the
+// others directly. Without it `togo migrate` fails with unknown driver "pgx".
+func TestCommandsLoadPlugins(t *testing.T) {
+	dir := t.TempDir()
+	render(t, dir, "nextjs", "postgres")
+	mains, err := filepath.Glob(filepath.Join(dir, "cmd", "*", "main.go"))
+	if err != nil || len(mains) == 0 {
+		t.Fatalf("no cmd/*/main.go rendered: %v", err)
+	}
+	for _, m := range mains {
+		f, err := parser.ParseFile(token.NewFileSet(), m, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		loads := false
+		for _, imp := range f.Imports {
+			switch strings.Trim(imp.Path.Value, `"`) {
+			case "example.com/demo/internal/plugins", "example.com/demo/internal/server":
+				loads = true
+			}
+		}
+		if !loads {
+			rel, _ := filepath.Rel(dir, m)
+			t.Errorf("%s does not import internal/plugins, so the db driver plugin is not registered", filepath.ToSlash(rel))
+		}
+	}
+}
+
 func walk(t *testing.T, dir string, fn func(rel, body string)) {
 	t.Helper()
 	err := filepath.WalkDir(dir, func(p string, de fs.DirEntry, err error) error {
@@ -290,6 +322,107 @@ func TestScaffoldBuilds(t *testing.T) {
 			run(t, web, os.Environ(), npm, "run", "build")
 		})
 	}
+}
+
+// seederSource stands in for a generated seeder registry: it writes a row into
+// the probe table through the app's database handle, the way resource seeders do.
+const seederSource = `package seeders
+
+import (
+	"context"
+
+	"example.com/demo/internal/app"
+)
+
+func SeedAll(ctx context.Context, a *app.App) error {
+	_, err := a.SQLDB.ExecContext(ctx, "INSERT INTO e2e_migrate_probe (id) VALUES (1)")
+	return err
+}
+`
+
+// checkSource proves both commands ran through the registered "pgx" driver: it
+// loads the project's plugins (as cmd/migrate and cmd/seed must), finds the probe
+// table the migration created and the row the seeder wrote, and drops the table
+// so the next run starts clean.
+const checkSource = `package main
+
+import (
+	"database/sql"
+	"os"
+
+	_ "example.com/demo/internal/plugins"
+)
+
+func main() {
+	db, err := sql.Open("pgx", os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	var name sql.NullString
+	if err := db.QueryRow("SELECT to_regclass('e2e_migrate_probe')::text").Scan(&name); err != nil {
+		panic(err)
+	}
+	if !name.Valid {
+		panic("migration did not create e2e_migrate_probe")
+	}
+	var rows int
+	if err := db.QueryRow("SELECT count(*) FROM e2e_migrate_probe WHERE id = 1").Scan(&rows); err != nil {
+		panic(err)
+	}
+	if rows != 1 {
+		panic("seed did not write the probe row")
+	}
+	if _, err := db.Exec("DROP TABLE e2e_migrate_probe"); err != nil {
+		panic(err)
+	}
+}
+`
+
+// TestScaffoldMigratePostgres renders a Postgres project the way `togo new --db
+// postgres` does (db-postgres blank-imported in plugins.gen.go), runs its
+// migrate and seed commands against the throwaway database in
+// TOGO_SCAFFOLD_PG_URL (CI starts one as a service container), and checks the
+// table the migration created and the row the seeder wrote.
+func TestScaffoldMigratePostgres(t *testing.T) {
+	url := os.Getenv("TOGO_SCAFFOLD_PG_URL")
+	if url == "" {
+		t.Skip("set TOGO_SCAFFOLD_PG_URL to a throwaway Postgres database")
+	}
+	dir := t.TempDir()
+	render(t, dir, "nextjs", "postgres")
+	goEnv := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
+	install(t, dir, goEnv, plugin{module: "github.com/togo-framework/db-postgres", version: "v0.1.0"})
+	run(t, dir, goEnv, "go", "mod", "tidy")
+
+	// The drop clears a probe table left by an earlier failed run against the same database.
+	for name, stmt := range map[string]string{
+		"0001_e2e_drop_probe.sql":   "DROP TABLE IF EXISTS e2e_migrate_probe;\n",
+		"0002_e2e_create_probe.sql": "CREATE TABLE e2e_migrate_probe (id integer PRIMARY KEY);\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, "internal", "db", "schema", name), []byte(stmt), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "internal", "db", "seeders", "registry.gen.go"), []byte(seederSource), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dbEnv := append(goEnv, "DB_DRIVER=pgx", "DATABASE_URL="+url)
+	if out := output(t, dir, dbEnv, "go", "run", "./cmd/migrate"); !strings.Contains(out, "migrate complete") {
+		t.Errorf("migrate did not complete:\n%s", out)
+	}
+	// seed exits 0 even when the database is unavailable, so check what it logged.
+	if out := output(t, dir, dbEnv, "go", "run", "./cmd/seed"); !strings.Contains(out, "seed complete") {
+		t.Errorf("seed did not complete:\n%s", out)
+	}
+
+	check := filepath.Join(dir, "cmd", "e2e-check")
+	if err := os.MkdirAll(check, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(check, "main.go"), []byte(checkSource), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, dir, goEnv, "go", "run", "./cmd/e2e-check", url)
 }
 
 // promoteSource grants the admin role straight in the database: auth has no API

@@ -11,6 +11,7 @@ import (
 	"github.com/togo-framework/togo"
 
 	"{{.Module}}/internal/app"
+	_ "{{.Module}}/internal/plugins" // registers the db driver and other installed plugins
 )
 
 func main() {
