@@ -1,0 +1,18 @@
+{{- if eq .DBDriver "pgx" -}}
+# Declares the schema every generated table belongs to (`togo make:migration`).
+# Atlas needs the schema the database URL connects to: Postgres' "public".
+schema "public" {
+}
+{{- else if eq .DBDriver "mysql" -}}
+# Declares the schema every generated table belongs to (`togo make:migration`).
+# Atlas needs the schema the database URL connects to: on MySQL that is the
+# database name. Rename it here if DATABASE_URL points at another database;
+# new tables pick the name up from this file.
+schema "{{.App}}" {
+}
+{{- else -}}
+# Declares the schema every generated table belongs to (`togo make:migration`).
+# Atlas needs the schema the database URL connects to: SQLite's "main".
+schema "main" {
+}
+{{- end}}

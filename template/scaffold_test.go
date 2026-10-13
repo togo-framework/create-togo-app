@@ -187,6 +187,22 @@ func TestSQLCEngineMatchesDriver(t *testing.T) {
 	}
 }
 
+// Atlas only applies HCL whose schema is the one the URL connects to, so the
+// declared schema follows the driver (and togo make:migration reuses its name).
+func TestAtlasSchemaMatchesDriver(t *testing.T) {
+	schemas := map[string]string{"pgx": "public", "mysql": "demo", "sqlite": "main", "mongodb": "main"}
+	for db, cfg := range databases {
+		t.Run(db, func(t *testing.T) {
+			dir := t.TempDir()
+			render(t, dir, "nextjs", db)
+			want := `schema "` + schemas[cfg[0]] + `" {`
+			if got := read(t, dir, "db/atlas/schema/schema.hcl"); strings.Count(got, "schema \"") != 1 || !strings.Contains(got, want) {
+				t.Errorf("schema.hcl for %s does not declare %s:\n%s", db, want, got)
+			}
+		})
+	}
+}
+
 // Database drivers other than SQLite are plugins (db-postgres, db-mysql, …) that
 // `togo new --db` blank-imports in internal/plugins, so every command that opens
 // the database must load that package: cmd/api through internal/server, the
