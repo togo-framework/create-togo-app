@@ -171,6 +171,22 @@ func TestScaffoldContract(t *testing.T) {
 	}
 }
 
+// sqlc must parse the SQL that `togo make:resource` writes for the configured
+// driver, so sqlc.yaml's engine follows DBDriver (mongodb keeps the SQLite default).
+func TestSQLCEngineMatchesDriver(t *testing.T) {
+	engines := map[string]string{"pgx": "postgresql", "mysql": "mysql", "sqlite": "sqlite", "mongodb": "sqlite"}
+	for db, cfg := range databases {
+		t.Run(db, func(t *testing.T) {
+			dir := t.TempDir()
+			render(t, dir, "nextjs", db)
+			want := `engine: "` + engines[cfg[0]] + `"`
+			if got := read(t, dir, "sqlc.yaml"); strings.Count(got, "engine:") != 1 || !strings.Contains(got, want) {
+				t.Errorf("sqlc.yaml for %s does not use %s:\n%s", db, want, got)
+			}
+		})
+	}
+}
+
 // Database drivers other than SQLite are plugins (db-postgres, db-mysql, …) that
 // `togo new --db` blank-imports in internal/plugins, so every command that opens
 // the database must load that package: cmd/api through internal/server, the
