@@ -749,3 +749,60 @@ func output(t *testing.T, dir string, env []string, name string, args ...string)
 	}
 	return string(out)
 }
+
+// The SQLite (and mongodb) sqlc.yaml must stay byte-identical to the file the
+// template shipped before it became driver-aware (v0.2.1), and the Postgres one
+// must carry the override set that keeps the generated models on the same Go
+// types as the SQLite path (string ids, pointer nullables, time.Time).
+func TestSQLCYamlGolden(t *testing.T) {
+	const sqliteGolden = `version: "2"
+sql:
+  - engine: "sqlite"
+    schema: "internal/db/schema"
+    queries: "internal/db/queries"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db/gen"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "datetime"
+            go_type: "time.Time"
+`
+	for _, db := range []string{"sqlite", "mongodb"} {
+		t.Run(db, func(t *testing.T) {
+			dir := t.TempDir()
+			render(t, dir, "nextjs", db)
+			if got := strings.TrimLeft(read(t, dir, "sqlc.yaml"), "\n"); got != sqliteGolden {
+				t.Errorf("sqlc.yaml for %s changed:\n%s", db, got)
+			}
+		})
+	}
+
+	dir := t.TempDir()
+	render(t, dir, "nextjs", "postgres")
+	got := read(t, dir, "sqlc.yaml")
+	for _, want := range []string{
+		`engine: "postgresql"`,
+		`schema: "internal/db/schema"`,
+		`out: "internal/db/gen"`,
+		`emit_db_tags: true`,
+		`db_type: "uuid"`,
+		`db_type: "pg_catalog.int8"`,
+		`db_type: "pg_catalog.numeric"`,
+		`db_type: "timestamptz"`,
+		`db_type: "date"`,
+		`db_type: "jsonb"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("postgres sqlc.yaml is missing %s:\n%s", want, got)
+		}
+	}
+	for _, bad := range []string{"emit_pointers_for_null_types", "sql_package", "sqlite", `"pg_catalog.timestamptz"`} {
+		if strings.Contains(got, bad) {
+			t.Errorf("postgres sqlc.yaml must not contain %s", bad)
+		}
+	}
+}
